@@ -20,6 +20,7 @@
 #include "ui/smoke_alert.h"
 #include "ui/thermo_popup.h"
 #include "ui/theme.h"
+#include "util/i18n.h"
 
 namespace ui {
 
@@ -160,7 +161,7 @@ void toggleSwitch(const String& key) {
   for (const auto& s : g_store.snapshot()) {
     if (s.key() != key) continue;
     if (!s.online) {
-      showToast(s.name + " je trenutno nedostupan");
+      showToast(s.name + TR(" je trenutno nedostupan", " is offline right now"));
     } else if (!s.pending) {
       cloud::requestSet(key, !s.on);
     }
@@ -226,11 +227,12 @@ static void execScene(const scenes::Scene& sc) {
   }
   Serial.printf("[scene] %s: poslato %d, već tako %d, nije uspelo %d, isključeno %d\n", sc.name.c_str(), sent, same,
                 failed, off);
-  String msg = "„" + sc.name + "“: ";
-  if (sent) msg += String(sent) + (sent == 1 ? " komanda poslata" : " komandi poslato");
-  else if (!failed && same) msg += "sve je već tako podešeno";
-  else if (!failed) msg += "nema uključenih uređaja u sceni";
-  if (failed) msg += String(sent ? ", " : "") + String(failed) + " uređaj(a) nedostupno";
+  String msg = String(TR("„", "\"")) + sc.name + TR("“: ", "\": ");
+  if (sent)
+    msg += String(sent) + (sent == 1 ? TR(" komanda poslata", " command sent") : TR(" komandi poslato", " commands sent"));
+  else if (!failed && same) msg += TR("sve je već tako podešeno", "everything is already set");
+  else if (!failed) msg += TR("nema uključenih uređaja u sceni", "no enabled devices in the scene");
+  if (failed) msg += String(sent ? ", " : "") + String(failed) + TR(" uređaj(a) nedostupno", " device(s) offline");
   showToast(msg, failed > 0);
 }
 
@@ -244,7 +246,7 @@ void runScene(const String& id) {
       if (x.op == "disarm" && x.key == a.deviceId && alarmArmed(a.mode)) needsPin = true;
   if (needsPin && settings::hasAlarmPin()) {
     lv_obj_t* back = lv_screen_active();
-    pin_prompt::ask("Scena „" + sc.name + "“", [id, back]() {
+    pin_prompt::ask(String(TR("Scena „", "Scene \"")) + sc.name + TR("“", "\""), [id, back]() {
       lv_screen_load(back);
       scenes::Scene s2;
       if (scenes::find(id, s2)) execScene(s2);
@@ -261,7 +263,7 @@ static void onAllOff(lv_event_t*) {
         cloud::requestSet(s.key(), false))
       n++;
   }
-  if (n == 0) showToast("Sva svetla su već ugašena");
+  if (n == 0) showToast(TR("Sva svetla su već ugašena", "All lights are already off"));
 }
 
 static void onChipClicked(lv_event_t* e) {
@@ -270,9 +272,9 @@ static void onChipClicked(lv_event_t* e) {
   const char* name = i == 0 ? "Tuya" : "eWeLink";
   String t;
   switch (cs.state) {
-    case LinkState::Ok: t = String(name) + ": povezano"; break;
-    case LinkState::Connecting: t = String(name) + ": povezivanje…"; break;
-    case LinkState::Disabled: t = String(name) + ": " + cs.message + " (Podešavanja)"; break;
+    case LinkState::Ok: t = String(name) + TR(": povezano", ": connected"); break;
+    case LinkState::Connecting: t = String(name) + TR(": povezivanje…", ": connecting…"); break;
+    case LinkState::Disabled: t = String(name) + ": " + cs.message + TR(" (Podešavanja)", " (Settings)"); break;
     case LinkState::Error: t = cs.message; break;
   }
   showToast(t);
@@ -337,7 +339,7 @@ static void buildHeader() {
   lv_obj_t* title = lv_label_create(hdr);
   lv_obj_set_style_text_font(title, F_TITLE, 0);
   lv_obj_set_style_text_color(title, C_TEXT, 0);
-  lv_label_set_text(title, PANEL_TITLE);
+  lv_label_set_text(title, TR("Uređaji", "Devices"));
   lv_obj_align(title, LV_ALIGN_TOP_LEFT, 62, 10);
 
   s_subtitle = lv_label_create(hdr);
@@ -380,7 +382,7 @@ static void buildHeader() {
   lv_obj_t* lbl = lv_label_create(allOff);
   lv_obj_set_style_text_font(lbl, F_SMALL, 0);
   lv_obj_set_style_text_color(lbl, C_TEXT, 0);
-  lv_label_set_text(lbl, "Ugasi svetla");
+  lv_label_set_text(lbl, TR("Ugasi svetla", "Lights off"));
 
   makeChip(right, "Tuya", 0);
   makeChip(right, "eWeLink", 1);
@@ -431,7 +433,7 @@ static void buildBody() {
   lv_obj_set_style_text_align(s_message, LV_TEXT_ALIGN_CENTER, 0);
   lv_label_set_long_mode(s_message, LV_LABEL_LONG_WRAP);
   lv_obj_align(s_message, LV_ALIGN_CENTER, 0, HEADER_H / 2);
-  lv_label_set_text(s_message, "Pokretanje…");
+  lv_label_set_text(s_message, TR("Pokretanje…", "Starting…"));
 
   s_toast = lv_label_create(lv_layer_top());  // vidi se preko svih ekrana
   lv_obj_set_style_text_font(s_toast, F_SMALL, 0);
@@ -497,15 +499,15 @@ static void applyTile(Tile& t, const SwitchState& s) {
   const char* state;
   if (!s.online) {
     bg = C_CARD_OFFLINE; fg = C_MUTED; muted = lv_color_hex(0x4A535E); icon = lv_color_hex(0x343C46);
-    state = "Nedostupno";
+    state = TR("Nedostupno", "Offline");
   } else if (s.on) {
     bg = C_ON; fg = C_ON_TEXT; muted = C_ON_MUTED; icon = C_ON_TEXT;
-    state = "Uključeno";
+    state = TR("Uključeno", "On");
   } else {
     bg = C_CARD; fg = C_TEXT; muted = C_MUTED; icon = lv_color_hex(0x5B6673);
-    state = "Isključeno";
+    state = TR("Isključeno", "Off");
   }
-  if (s.pending) state = "Šaljem…";
+  if (s.pending) state = TR("Šaljem…", "Sending…");
 
   if (strcmp(lv_label_get_text(t.name), s.name.c_str()) != 0) lv_label_set_text(t.name, s.name.c_str());
   // Svaka promena stila prekrtava pločicu (opterećuje PSRAM -> smetnje na ekranu), pa samo kad treba
@@ -575,11 +577,12 @@ static void applySensorTile(SensorTile& t, const SensorInfo& x) {
   char buf[16] = "--";
   if (x.hasValue) {
     snprintf(buf, sizeof(buf), "%.1f°", x.value);
-    if (char* dot = strchr(buf, '.')) *dot = ',';  // decimalni zarez
+    if (char* dot = strchr(buf, '.')) *dot = i18n::decimalSep();  // decimalni zarez (sr) / tačka (en)
   }
   setText(t.value, buf);
   setText(t.name, x.name.c_str());
-  setText(t.note, x.online ? (x.fahrenheit ? "Temperatura (°F)" : "Temperatura") : "Nedostupan");
+  setText(t.note, x.online ? (x.fahrenheit ? TR("Temperatura (°F)", "Temperature (°F)") : TR("Temperatura", "Temperature"))
+                           : TR("Nedostupan", "Offline"));
   setTextColor(t.value, x.online ? C_TEXT : C_MUTED);
   setTextColor(t.name, x.online ? C_TEXT : C_MUTED);
   setTextColor(t.note, C_MUTED);
@@ -657,10 +660,10 @@ static CoverTile makeCoverTile(const CoverState& c) {
 static void applyCoverTile(CoverTile& t, const CoverState& c) {
   setText(t.name, c.name.c_str());
   String st;
-  if (!c.online) st = "Nedostupna";
-  else if (c.pending) st = "Šaljem…";
-  else if (c.position >= 0) st = "Položaj " + String(c.position) + " %";
-  else st = "Roletna";
+  if (!c.online) st = TR("Nedostupna", "Offline");
+  else if (c.pending) st = TR("Šaljem…", "Sending…");
+  else if (c.position >= 0) st = TR("Položaj ", "Position ") + String(c.position) + " %";
+  else st = TR("Roletna", "Blind");
   setText(t.state, st.c_str());
   setTextColor(t.name, c.online ? C_TEXT : C_MUTED);
   setTextColor(t.state, C_MUTED);
@@ -706,7 +709,8 @@ static SceneTile makeSceneTile(const scenes::Scene& sc) {
 
 static void applySceneTile(SceneTile& t, const scenes::Scene& sc) {
   setText(t.name, sc.name.c_str());
-  const String note = "Scena · " + String(sc.actions.size()) + (sc.actions.size() == 1 ? " uređaj" : " uređaja");
+  const String note = TR("Scena · ", "Scene · ") + String(sc.actions.size()) +
+                      (sc.actions.size() == 1 ? TR(" uređaj", " device") : TR(" uređaja", " devices"));
   setText(t.note, note.c_str());
 }
 
@@ -755,7 +759,8 @@ static void applySmokeTile(SmokeTile& t, const SmokeInfo& x) {
   setTextColor(t.state, x.alarm && x.online ? lv_color_white() : x.online ? C_TEXT : C_MUTED);
   setText(t.name, x.name.c_str());
   setTextColor(t.name, x.alarm && x.online ? lv_color_white() : x.online ? C_TEXT : C_MUTED);
-  setText(t.note, x.battery >= 0 ? ("Detektor dima · " + String(x.battery) + "%").c_str() : "Detektor dima");
+  const String note = String(TR("Detektor dima", "Smoke detector")) + (x.battery >= 0 ? " · " + String(x.battery) + "%" : "");
+  setText(t.note, note.c_str());
   setTextColor(t.note, x.alarm && x.online ? lv_color_hex(0xFFD9D6) : C_MUTED);
 }
 
@@ -801,17 +806,19 @@ static void applyThermoTile(ThermoTile& t, const ThermostatState& x) {
   char cur[16] = "--";
   if (x.hasCurrent) {
     snprintf(cur, sizeof(cur), "%.1f°", x.current);
-    if (char* dot = strchr(cur, '.')) *dot = ',';
+    if (char* dot = strchr(cur, '.')) *dot = i18n::decimalSep();
   }
   setText(t.value, cur);
   String tg;
   if (!x.online) tg = "";
-  else if (!x.on) tg = "Isključen";
-  else if (x.pending) tg = "Šaljem…";
+  else if (!x.on) tg = TR("Isključen", "Off");
+  else if (x.pending) tg = TR("Šaljem…", "Sending…");
   else if (x.hasTarget) tg = "→ " + thermoDegrees(x.target);
   setText(t.target, tg.c_str());
   setText(t.name, x.name.c_str());
-  String note = !x.online ? "Nedostupan" : x.on && x.heating == 1 ? "Termostat · greje" : "Termostat";
+  String note = !x.online                      ? TR("Nedostupan", "Offline")
+                : x.on && x.heating == 1 ? TR("Termostat · greje", "Thermostat · heating")
+                                         : TR("Termostat", "Thermostat");
   setText(t.note, note.c_str());
   setTextColor(t.value, x.online && x.on ? C_TEXT : C_MUTED);
   setTextColor(t.target, x.on && x.heating == 1 ? C_ON : C_MUTED);
@@ -951,20 +958,26 @@ static void setChip(int i, const CloudStatus& cs) {
 
 static String statusMessage(const std::vector<SwitchState>& items, size_t hiddenCount) {
   if (!items.empty()) return "";
-  if (hiddenCount) return "Svi prekidači su sakriveni.\nPrikaži ih u Podešavanja → Uređaji.";
+  if (hiddenCount)
+    return TR("Svi prekidači su sakriveni.\nPrikaži ih u Podešavanja → Uređaji.",
+              "All switches are hidden.\nShow them in Settings → Devices.");
   if (!s_sys.wifiConnected)
-    return settings::get().wifiSsid.isEmpty() ? "Wi-Fi mreža nije podešena.\nOtvori podešavanja (zupčanik gore desno)."
-                                              : "Povezivanje na Wi-Fi mrežu…";
-  if (!s_sys.timeSynced) return "Sinhronizacija vremena…";
+    return settings::get().wifiSsid.isEmpty()
+               ? TR("Wi-Fi mreža nije podešena.\nOtvori podešavanja (zupčanik gore desno).",
+                    "Wi-Fi is not set up.\nOpen Settings (gear icon, top right).")
+               : TR("Povezivanje na Wi-Fi mrežu…", "Connecting to Wi-Fi…");
+  if (!s_sys.timeSynced) return TR("Sinhronizacija vremena…", "Syncing time…");
   if (s_sys.tuya.state == LinkState::Disabled && s_sys.ewelink.state == LinkState::Disabled)
-    return "Nijedan nalog nije podešen.\nOtvori podešavanja (zupčanik gore desno).";
+    return TR("Nijedan nalog nije podešen.\nOtvori podešavanja (zupčanik gore desno).",
+              "No account is set up.\nOpen Settings (gear icon, top right).");
   String err;
   if (s_sys.tuya.state == LinkState::Error) err += s_sys.tuya.message + "\n";
   if (s_sys.ewelink.state == LinkState::Error) err += s_sys.ewelink.message + "\n";
   const bool loading = s_sys.tuya.state == LinkState::Connecting || s_sys.ewelink.state == LinkState::Connecting;
-  if (loading) return "Učitavanje uređaja…\n" + err;
+  if (loading) return TR("Učitavanje uređaja…\n", "Loading devices…\n") + err;
   if (err.length()) return err;
-  return "Nema pronađenih prekidača.\nProveri TUYA_CATEGORIES u config.h.";
+  return TR("Nema pronađenih prekidača.\nProveri TUYA_CATEGORIES u config.h.",
+            "No switches found.\nCheck TUYA_CATEGORIES in config.h.");
 }
 
 // Naslov sekcije u mreži: cela širina, pa naredne pločice idu u novi red
@@ -1051,9 +1064,9 @@ static void sync() {
     s_tiles.reserve(items.size());
     if (!alarms.empty()) sectionHeader("Alarm", alarms.size());
     for (const AlarmState& a : alarms) s_alarmTiles.push_back(makeAlarmTile(a));
-    if (!scs.empty()) sectionHeader("Scene", scs.size());
+    if (!scs.empty()) sectionHeader(TR("Scene", "Scenes"), scs.size());
     for (const scenes::Scene& s : scs) s_sceneTiles.push_back(makeSceneTile(s));
-    if (!sensors.empty()) sectionHeader("Temperatura", sensors.size());
+    if (!sensors.empty()) sectionHeader(TR("Temperatura", "Temperature"), sensors.size());
     for (const SensorInfo& x : sensors) s_sensorTiles.push_back(makeSensorTile(x));
     // Sekcija prekidača jedne grupe; u "Klima" prvo idu termostati, u "Sigurnost" detektori dima
     // i senzori vrata / pokreta
@@ -1075,7 +1088,7 @@ static void sync() {
         if (s.group == g) s_tiles.push_back(makeTile(s_tiles.size(), s));
     };
     for (DeviceGroup g : BEFORE_COVERS) switchSection(g);
-    if (!covers.empty()) sectionHeader("Roletne", covers.size());
+    if (!covers.empty()) sectionHeader(TR("Roletne", "Blinds"), covers.size());
     for (const CoverState& c : covers) s_coverTiles.push_back(makeCoverTile(c));
     for (DeviceGroup g : AFTER_COVERS) switchSection(g);
   }
@@ -1103,7 +1116,7 @@ static void sync() {
   setVisible(s_allOff, lighting > 0);
 
   char sub[48] = "";
-  if (lighting) snprintf(sub, sizeof(sub), "Upaljeno: %d/%d", onCount, lighting);
+  if (lighting) snprintf(sub, sizeof(sub), TR("Upaljeno: %d/%d", "On: %d/%d"), onCount, lighting);
   setText(s_subtitle, sub);
   // Kao na početnom ekranu: ikonica samo kad Wi-Fi ne radi (mesto u zaglavlju je tesno sa oba clouda)
   setVisible(s_wifi, !s_sys.wifiConnected);

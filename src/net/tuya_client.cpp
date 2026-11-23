@@ -9,6 +9,7 @@
 
 #include "model/settings.h"
 #include "util/crypto.h"
+#include "util/i18n.h"
 
 uint64_t epochMillis() {
   struct timeval tv;
@@ -62,13 +63,14 @@ String TuyaClient::buildSign(const String& accessId, const String& secret, const
 String TuyaClient::describeError(int code, const String& msg) {
   String hint;
   switch (code) {
-    case 1004: hint = "pogrešan Access Secret (sign invalid)"; break;
-    case 1013: hint = "sat nije tačan (NTP)"; break;
-    case 1106: hint = "nema dozvole - proveri da je Smart Life nalog povezan sa projektom"; break;
-    case 2008: hint = "komanda nije podržana za ovaj uređaj"; break;
-    case 28841002: hint = "Tuya trial je istekao - produži ga na iot.tuya.com"; break;
-    case 28841101: hint = "API nije pretplaćen - dodaj IoT Core servis projektu"; break;
-    case 28841105: hint = "projekat nema dozvolu - proveri data centar i IoT Core"; break;
+    case 1004: hint = TR("pogrešan Access Secret (sign invalid)", "wrong Access Secret (sign invalid)"); break;
+    case 1013: hint = TR("sat nije tačan (NTP)", "clock is wrong (NTP)"); break;
+    case 1106: hint = TR("nema dozvole - proveri da je Smart Life nalog povezan sa projektom",
+                         "no permission - check that the Smart Life account is linked to the project"); break;
+    case 2008: hint = TR("komanda nije podržana za ovaj uređaj", "command not supported by this device"); break;
+    case 28841002: hint = TR("Tuya trial je istekao - produži ga na iot.tuya.com", "Tuya trial expired - extend it at iot.tuya.com"); break;
+    case 28841101: hint = TR("API nije pretplaćen - dodaj IoT Core servis projektu", "API not subscribed - add the IoT Core service to the project"); break;
+    case 28841105: hint = TR("projekat nema dozvolu - proveri data centar i IoT Core", "project has no permission - check the data center and IoT Core"); break;
     default: break;
   }
   String s = "Tuya " + String(code) + ": " + (hint.length() ? hint : msg);
@@ -88,13 +90,13 @@ bool TuyaClient::ensureToken(String& err) {
   HeaderList h = {{"client_id", accessId_}, {"sign", sign}, {"t", t}, {"sign_method", "HMAC-SHA256"}};
   HttpResult r = http_.request("GET", endpoint_ + path + "?" + sortedQuery(q, true), "", h);
   if (!r.ok()) {
-    err = r.status < 0 ? "Tuya: nema veze sa serverom (" + HTTPClient::errorToString(r.status) + ")"
+    err = r.status < 0 ? TR("Tuya: nema veze sa serverom (", "Tuya: no connection to the server (") + HTTPClient::errorToString(r.status) + ")"
                        : "Tuya: HTTP " + String(r.status);
     return false;
   }
   JsonDocument doc;
   if (deserializeJson(doc, r.body)) {
-    err = "Tuya: neispravan odgovor za token";
+    err = TR("Tuya: neispravan odgovor za token", "Tuya: invalid token response");
     return false;
   }
   if (!doc["success"].as<bool>()) {
@@ -123,7 +125,7 @@ bool TuyaClient::call(const char* method, const String& path, const QueryList& q
 
   HttpResult r = http_.request(method, endpoint_ + pqUrl, body, h);
   if (!r.ok()) {
-    err = r.status < 0 ? "Tuya: nema veze sa serverom (" + HTTPClient::errorToString(r.status) + ")"
+    err = r.status < 0 ? TR("Tuya: nema veze sa serverom (", "Tuya: no connection to the server (") + HTTPClient::errorToString(r.status) + ")"
                        : "Tuya: HTTP " + String(r.status);
     return false;
   }
@@ -132,7 +134,7 @@ bool TuyaClient::call(const char* method, const String& path, const QueryList& q
   DeserializationError de = filter ? deserializeJson(doc, r.body, DeserializationOption::Filter(*filter))
                                    : deserializeJson(doc, r.body);
   if (de) {
-    err = "Tuya: neispravan JSON (" + String(de.c_str()) + ")";
+    err = TR("Tuya: neispravan JSON (", "Tuya: invalid JSON (") + String(de.c_str()) + ")";
     return false;
   }
   if (!doc["success"].as<bool>()) {
@@ -434,7 +436,7 @@ bool TuyaClient::setCover(const CoverInfo& c, CoverAction a, String& err) {
   JsonDocument doc;
   if (!call("POST", "/v1.0/devices/" + c.deviceId + "/commands", {}, json, doc, nullptr, err)) return false;
   if (!(doc["result"] | false)) {
-    err = "Tuya: roletna nije prihvatila komandu";
+    err = TR("Tuya: roletna nije prihvatila komandu", "Tuya: blind did not accept the command");
     return false;
   }
   return true;
@@ -633,7 +635,7 @@ bool TuyaClient::setThermostat(const ThermostatInfo& t, int8_t power, float targ
   JsonArray cmds = body["commands"].to<JsonArray>();
   if (power >= 0) {
     if (!t.hasPower) {
-      err = "termostat nema uključivanje/isključivanje";
+      err = TR("termostat nema uključivanje/isključivanje", "thermostat has no on/off");
       return false;
     }
     JsonObject c = cmds.add<JsonObject>();
@@ -655,7 +657,7 @@ bool TuyaClient::setThermostat(const ThermostatInfo& t, int8_t power, float targ
   JsonDocument doc;
   if (!call("POST", "/v1.0/devices/" + t.deviceId + "/commands", {}, json, doc, nullptr, err)) return false;
   if (!(doc["result"] | false)) {
-    err = "Tuya: termostat nije prihvatio komandu";
+    err = TR("Tuya: termostat nije prihvatio komandu", "Tuya: thermostat did not accept the command");
     return false;
   }
   return true;
@@ -742,7 +744,7 @@ bool TuyaClient::setAlarmMode(const String& deviceId, AlarmMode mode, String& er
   JsonDocument doc;
   if (!call("POST", "/v1.0/devices/" + deviceId + "/commands", {}, json, doc, nullptr, err)) return false;
   if (!(doc["result"] | false)) {
-    err = "Tuya: centrala nije prihvatila komandu";
+    err = TR("Tuya: centrala nije prihvatila komandu", "Tuya: alarm hub did not accept the command");
     return false;
   }
   return true;
@@ -759,7 +761,7 @@ bool TuyaClient::setSwitch(const SwitchInfo& sw, bool on, String& err) {
   JsonDocument doc;
   if (!call("POST", "/v1.0/devices/" + sw.deviceId + "/commands", {}, json, doc, nullptr, err)) return false;
   if (!(doc["result"] | false)) {
-    err = "Tuya: uređaj nije prihvatio komandu";
+    err = TR("Tuya: uređaj nije prihvatio komandu", "Tuya: device did not accept the command");
     return false;
   }
   return true;

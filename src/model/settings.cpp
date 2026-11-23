@@ -5,12 +5,15 @@
 #include <algorithm>
 #include <atomic>
 #include <vector>
+#include <esp_attr.h>
 #include <esp_random.h>
+#include <esp_system.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 
 #include "config.h"
 #include "util/crypto.h"
+#include "util/restart.h"
 
 // Opcione početne vrednosti iz include/secrets.h
 #if __has_include("secrets.h")
@@ -60,6 +63,12 @@ static ScreenCfg s_screen;
 static std::atomic<uint32_t> s_uiRev{1};
 static void seedDefaultsLocked();
 static std::atomic<uint32_t> s_hiddenRev{1};
+static std::atomic<Lang> s_lang{Lang::En};  // sačuvan izbor (aktivni je i18n::lang())
+
+// Web PIN preživljava restart koji je panel sam zatražio (promena jezika): RTC memorija se tada ne briše.
+RTC_NOINIT_ATTR static uint32_t s_rtcPinMagic;
+RTC_NOINIT_ATTR static char s_rtcPin[8];
+static constexpr uint32_t RTC_PIN_MAGIC = 0x50494E31;  // "PIN1"
 
 static String readKey(Preferences& p, const char* key, const char* def) {
   return p.isKey(key) ? p.getString(key, def) : String(def);
@@ -103,7 +112,12 @@ void begin() {
   s_pinHash = readKey(p, "alarmPinH", "");
   s_pinSalt = readKey(p, "alarmPinS", "");
   const String pages = readKey(p, "pageNames", "");
+  const String lang = readKey(p, "lang", UI_DEFAULT_LANGUAGE);
   p.end();
+  Lang l = Lang::En;
+  i18n::parse(lang.c_str(), l);
+  s_lang = l;
+  i18n::set(l);
   int start = 0;
   while (start < (int)hidden.length()) {
     int nl = hidden.indexOf('\n', start);
@@ -125,9 +139,17 @@ void begin() {
   for (Position& q : s_pos)
     if (q.page >= s_pages.size()) q.page = 0;
 
-  char buf[8];
-  snprintf(buf, sizeof(buf), "%06u", (unsigned)(esp_random() % 1000000));
-  s_pin = buf;
+  const bool keepPin = restart::wasRequested() && s_rtcPinMagic == RTC_PIN_MAGIC &&
+                       strnlen(s_rtcPin, sizeof(s_rtcPin)) == 6;
+  if (keepPin) {
+    s_pin = String(s_rtcPin);
+  } else {
+    char buf[8];
+    snprintf(buf, sizeof(buf), "%06u", (unsigned)(esp_random() % 1000000));
+    s_pin = buf;
+    memcpy(s_rtcPin, buf, sizeof(s_rtcPin));
+    s_rtcPinMagic = RTC_PIN_MAGIC;
+  }
 
   Serial.printf("[settings] Wi-Fi: %s, Tuya: %s, eWeLink: %s\n",
                 s_cur.wifiSsid.length() ? s_cur.wifiSsid.c_str() : "(nije podešen)",
@@ -402,5 +424,14 @@ void setAlarmPin(const String& pin) {
 uint32_t revision() { return s_rev; }
 
 const String& webPin() { return s_pin; }
+
+Lang language() { return s_lang; }
+
+bool setLanguage(Lang l) {
+  if (s_lang.exchange(l) == l) return false;
+  store("lang", i18n::code(l));
+  Serial.printf("[settings] jezik: %s (primenjuje se posle restarta)\n", i18n::code(l));
+  return true;
+}
 
 }  // namespace settings

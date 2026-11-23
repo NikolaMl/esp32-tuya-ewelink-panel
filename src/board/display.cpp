@@ -44,7 +44,7 @@ static void flushCb(lv_display_t* disp, const lv_area_t* area, uint8_t* px) {
                (int)area->y2);
     }
   }
-  if (lv_display_flush_is_last(disp)) {
+  if (lv_display_flush_is_last(disp) && s_panel) {
     if (s_refrLog && s_refrPx)
       Serial.printf("[refr] %lu ms: %lu px (%lu%%), %lu obl.%s\n", (unsigned long)(millis() - s_refrT0),
                     (unsigned long)s_refrPx, (unsigned long)(s_refrPx * 100 / (LCD_H_RES * LCD_V_RES)),
@@ -133,6 +133,16 @@ bool begin() {
 
   Serial.printf("[display] %dx%d RGB panel OK, fb0=%p fb1=%p\n", LCD_H_RES, LCD_V_RES, fb0, fb1);
   return true;
+}
+
+void shutdown() {
+  setBacklight(0);
+  // RGB panel stalno čita framebuffer iz PSRAM-a (bounce buffer prekid). Ako to radi dok
+  // esp_restart() gasi keš, restart se zaglavi i okine watchdog — zato ga prvo zaustavi.
+  if (s_panel) {
+    esp_lcd_panel_del(s_panel);
+    s_panel = nullptr;
+  }
 }
 
 }  // namespace display

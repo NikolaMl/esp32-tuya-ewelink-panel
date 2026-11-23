@@ -6,6 +6,7 @@
 #include "net/cloud_task.h"
 #include "ui/theme.h"
 #include "ui/ui.h"
+#include "util/i18n.h"
 
 namespace cover_ui {
 
@@ -34,8 +35,9 @@ static lv_obj_t* label(lv_obj_t* parent, const lv_font_t* font, lv_color_t color
 void command(const String& key, CoverAction a) {
   for (const CoverState& c : g_store.covers()) {
     if (c.key() != key) continue;
-    if (!c.online) ui::showToast(c.name + " je trenutno nedostupna");
-    else if (!cloud::requestCover(key, a) && !c.pending) ui::showToast("Komanda nije poslata, pokušaj ponovo");
+    if (!c.online) ui::showToast(c.name + TR(" je trenutno nedostupna", " is offline right now"));
+    else if (!cloud::requestCover(key, a) && !c.pending)
+      ui::showToast(TR("Komanda nije poslata, pokušaj ponovo", "Command not sent, try again"));
     return;
   }
 }
@@ -133,9 +135,9 @@ void build() {
   lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-  actionButton(row, LV_SYMBOL_UP, "Gore", CoverAction::Open);
+  actionButton(row, LV_SYMBOL_UP, TR("Gore", "Up"), CoverAction::Open);
   actionButton(row, LV_SYMBOL_STOP, "Stop", CoverAction::Stop);
-  actionButton(row, LV_SYMBOL_DOWN, "Dole", CoverAction::Close);
+  actionButton(row, LV_SYMBOL_DOWN, TR("Dole", "Down"), CoverAction::Close);
 
   lv_obj_add_flag(s_scrim, LV_OBJ_FLAG_HIDDEN);
 }
@@ -149,10 +151,10 @@ static void refresh() {
     if (c.key() != s_key) continue;
     setText(s_name, c.name.c_str());
     String st;
-    if (!c.online) st = "Nedostupna";
-    else if (c.pending) st = "Šaljem…";
-    else if (c.position >= 0) st = "Položaj " + String(c.position) + " %";
-    else st = "Modul ne javlja položaj";
+    if (!c.online) st = TR("Nedostupna", "Offline");
+    else if (c.pending) st = TR("Šaljem…", "Sending…");
+    else if (c.position >= 0) st = TR("Položaj ", "Position ") + String(c.position) + " %";
+    else st = TR("Modul ne javlja položaj", "No position reported");
     setText(s_state, st.c_str());
     if (c.position >= 0) {
       if (lv_obj_has_flag(s_bar, LV_OBJ_FLAG_HIDDEN)) lv_obj_remove_flag(s_bar, LV_OBJ_FLAG_HIDDEN);

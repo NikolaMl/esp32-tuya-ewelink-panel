@@ -76,8 +76,10 @@
 #define NTP_SERVER_2   "time.google.com"
 #define TIMEZONE       "CET-1CEST,M3.5.0,M10.5.0/3"   // Beograd
 
-// ---------------------------------------------------------------- Prikaz
-#define PANEL_TITLE    "Uređaji"
+// ---------------------------------------------------------------- Jezik
+// Jezik interfejsa pri prvom pokretanju: "en" (engleski) ili "sr" (srpski, latinica).
+// Menja se kasnije na panelu (Podešavanja → Web) ili u web aplikaciji (Nalozi).
+#define UI_DEFAULT_LANGUAGE "en"
 
 // Opciono: preimenuj ili sakrij pojedinačne prekidače.
 //   key  = "<deviceId>" za jednokanalne ili "<deviceId>/<kanal>" za višekanalne

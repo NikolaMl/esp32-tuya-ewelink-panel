@@ -11,6 +11,9 @@
 #include "net/web_portal.h"
 #include "ui/pin_prompt.h"
 #include "ui/theme.h"
+#include "ui/ui.h"
+#include "util/i18n.h"
+#include "util/restart.h"
 
 namespace settings_ui {
 
@@ -37,6 +40,7 @@ static lv_obj_t *s_pinCur, *s_pinCurLbl, *s_pinNew, *s_pinNew2, *s_pinStatus;
 static uint32_t s_seenLayout = 0;
 // Web
 static lv_obj_t *s_webQr, *s_webUrl, *s_webPin, *s_webInfo;
+static lv_obj_t* s_langBtn[2];  // [0] = English, [1] = Srpski
 
 static uint32_t s_seenScan = 0, s_seenStore = 0, s_seenOauth = 0, s_seenSettings = 0;
 static String s_lastIp;
@@ -134,8 +138,8 @@ static void setStatus(lv_obj_t* l, const String& text, lv_color_t color) {
 
 static void cloudStatusText(lv_obj_t* l, const CloudStatus& cs, const char* name) {
   switch (cs.state) {
-    case LinkState::Ok: setStatus(l, String(name) + ": povezano", C_OK); break;
-    case LinkState::Connecting: setStatus(l, String(name) + ": povezivanje…", C_WARN); break;
+    case LinkState::Ok: setStatus(l, String(name) + TR(": povezano", ": connected"), C_OK); break;
+    case LinkState::Connecting: setStatus(l, String(name) + TR(": povezivanje…", ": connecting…"), C_WARN); break;
     case LinkState::Disabled: setStatus(l, String(name) + ": " + cs.message, C_MUTED); break;
     case LinkState::Error: setStatus(l, cs.message, C_ERR); break;
   }
@@ -145,7 +149,7 @@ static void cloudStatusText(lv_obj_t* l, const CloudStatus& cs, const char* name
 
 static void onScan(lv_event_t*) {
   cloud::requestWifiScan();
-  lv_label_set_text(s_scanLbl, "Skeniram…");
+  lv_label_set_text(s_scanLbl, TR("Skeniram…", "Scanning…"));
 }
 
 static void onNetworkPicked(lv_event_t* e) {
@@ -166,22 +170,22 @@ static void onWifiSave(lv_event_t*) {
   hideKeyboard();
   const String ssid = taText(s_ssidTa);
   if (ssid.isEmpty()) {
-    setStatus(s_wifiStatus, "Unesi naziv mreže (SSID)", C_ERR);
+    setStatus(s_wifiStatus, TR("Unesi naziv mreže (SSID)", "Enter the network name (SSID)"), C_ERR);
     return;
   }
   settings::setWifi(ssid, String(lv_textarea_get_text(s_passTa)));
-  setStatus(s_wifiStatus, "Povezujem se na " + ssid + "…", C_WARN);
+  setStatus(s_wifiStatus, TR("Povezujem se na ", "Connecting to ") + ssid + "…", C_WARN);
 }
 
 static void fillScanList() {
   lv_obj_clean(s_wifiList);
   const auto nets = cloud::scanResults();
   if (nets.empty()) {
-    lv_list_add_text(s_wifiList, "Nema pronađenih mreža");
+    lv_list_add_text(s_wifiList, TR("Nema pronađenih mreža", "No networks found"));
     return;
   }
   for (const auto& n : nets) {
-    String txt = n.ssid + "   " + String(n.rssi) + " dBm" + (n.secure ? "" : "  (otvorena)");
+    String txt = n.ssid + "   " + String(n.rssi) + " dBm" + (n.secure ? "" : TR("  (otvorena)", "  (open)"));
     lv_obj_t* b = lv_list_add_button(s_wifiList, nullptr, txt.c_str());
     lv_obj_set_style_text_font(b, F_SMALL, 0);
     // user_data: kopija SSID-a, oslobađa se kad se dugme obriše
@@ -201,8 +205,8 @@ static void buildWifiTab(lv_obj_t* tab) {
   lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
   lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  label(row, "Dostupne mreže", F_BODY, C_TEXT);
-  lv_obj_t* scan = button(row, "Skeniraj", onScan, false);
+  label(row, TR("Dostupne mreže", "Networks"), F_BODY, C_TEXT);
+  lv_obj_t* scan = button(row, TR("Skeniraj", "Scan"), onScan, false);
   s_scanLbl = lv_obj_get_child(scan, 0);
 
   s_wifiList = lv_list_create(left);
@@ -210,21 +214,21 @@ static void buildWifiTab(lv_obj_t* tab) {
   lv_obj_set_style_bg_color(s_wifiList, C_CARD, 0);
   lv_obj_set_style_border_width(s_wifiList, 0, 0);
   lv_obj_set_style_text_font(s_wifiList, F_SMALL, 0);
-  lv_list_add_text(s_wifiList, "Pritisni „Skeniraj“");
+  lv_list_add_text(s_wifiList, TR("Pritisni „Skeniraj“", "Tap \"Scan\""));
 
   lv_obj_t* right = column(tab, 380);
   s_wifiStatus = label(right, "", F_BODY, C_MUTED);
   lv_obj_set_width(s_wifiStatus, LV_PCT(100));
   lv_label_set_long_mode(s_wifiStatus, LV_LABEL_LONG_WRAP);
-  s_ssidTa = field(right, "Naziv mreže (SSID)", false, LV_PCT(100));
-  s_passTa = field(right, "Lozinka", true, LV_PCT(100));
+  s_ssidTa = field(right, TR("Naziv mreže (SSID)", "Network name (SSID)"), false, LV_PCT(100));
+  s_passTa = field(right, TR("Lozinka", "Password"), true, LV_PCT(100));
   s_showPass = lv_checkbox_create(right);
-  lv_checkbox_set_text(s_showPass, "Prikaži lozinku");
+  lv_checkbox_set_text(s_showPass, TR("Prikaži lozinku", "Show password"));
   lv_obj_set_style_text_font(s_showPass, F_SMALL, 0);
   lv_obj_set_style_text_font(s_showPass, &lv_font_montserrat_16, LV_PART_INDICATOR);  // kvačica = LVGL simbol
   lv_obj_set_style_text_color(s_showPass, C_TEXT, 0);
   lv_obj_add_event_cb(s_showPass, onShowPass, LV_EVENT_VALUE_CHANGED, nullptr);
-  button(right, "Sačuvaj i poveži", onWifiSave, true);
+  button(right, TR("Sačuvaj i poveži", "Save and connect"), onWifiSave, true);
 }
 
 // ---------------------------------------------------------------- Tuya tab
@@ -234,22 +238,26 @@ static void onTuyaSave(lv_event_t*) {
   const uint32_t sel = lv_dropdown_get_selected(s_tuyaDd);
   const String id = taText(s_tuyaId), secret = taText(s_tuyaSecret);
   if (id.isEmpty() != secret.isEmpty()) {
-    setStatus(s_tuyaStatus, "Unesi i Access ID i Access Secret", C_ERR);
+    setStatus(s_tuyaStatus, TR("Unesi i Access ID i Access Secret", "Enter both Access ID and Access Secret"), C_ERR);
     return;
   }
   settings::setTuya(TUYA_REGIONS[sel < TUYA_REGION_COUNT ? sel : 0].endpoint, id, secret);
-  setStatus(s_tuyaStatus, id.isEmpty() ? "Tuya je isključen" : "Sačuvano, povezujem…", C_WARN);
+  setStatus(s_tuyaStatus, id.isEmpty() ? TR("Tuya je isključen", "Tuya is turned off") : TR("Sačuvano, povezujem…", "Saved, connecting…"),
+            C_WARN);
 }
 
 static void buildTuyaTab(lv_obj_t* tab) {
   lv_obj_set_flex_flow(tab, LV_FLEX_FLOW_COLUMN);
-  lv_obj_t* info = label(tab, "Podaci iz iot.tuya.com → Cloud → tvoj projekat → Overview.\n"
-                              "Smart Life nalog mora biti povezan sa projektom (Devices → Link App Account).",
+  lv_obj_t* info = label(tab,
+                         TR("Podaci iz iot.tuya.com → Cloud → tvoj projekat → Overview.\n"
+                            "Smart Life nalog mora biti povezan sa projektom (Devices → Link App Account).",
+                            "From iot.tuya.com → Cloud → your project → Overview.\n"
+                            "Your Smart Life account must be linked to the project (Devices → Link App Account)."),
                          F_SMALL, C_MUTED);
   lv_obj_set_width(info, LV_PCT(100));
   lv_label_set_long_mode(info, LV_LABEL_LONG_WRAP);
 
-  label(tab, "Data centar", F_SMALL, C_MUTED);
+  label(tab, TR("Data centar", "Data center"), F_SMALL, C_MUTED);
   s_tuyaDd = lv_dropdown_create(tab);
   String opts;
   for (size_t i = 0; i < TUYA_REGION_COUNT; i++) {
@@ -270,7 +278,7 @@ static void buildTuyaTab(lv_obj_t* tab) {
   lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   lv_obj_set_style_pad_column(row, 16, 0);
   lv_obj_set_style_pad_top(row, 8, 0);
-  button(row, "Sačuvaj", onTuyaSave, true);
+  button(row, TR("Sačuvaj", "Save"), onTuyaSave, true);
   s_tuyaStatus = label(row, "", F_SMALL, C_MUTED);
   lv_obj_set_flex_grow(s_tuyaStatus, 1);
   lv_label_set_long_mode(s_tuyaStatus, LV_LABEL_LONG_WRAP);
@@ -284,28 +292,30 @@ static void onEwSave(lv_event_t*) {
   hideKeyboard();
   const String id = taText(s_ewId), secret = taText(s_ewSecret);
   if (id.isEmpty() != secret.isEmpty()) {
-    setStatus(s_ewStatus, "Unesi i App ID i App Secret", C_ERR);
+    setStatus(s_ewStatus, TR("Unesi i App ID i App Secret", "Enter both App ID and App Secret"), C_ERR);
     return;
   }
   settings::setEWeLink(id, secret);
-  setStatus(s_ewStatus, "Sačuvano. Sada poveži nalog →", C_WARN);
+  setStatus(s_ewStatus, TR("Sačuvano. Sada poveži nalog →", "Saved. Now link your account →"), C_WARN);
 }
 
 static void onEwConnect(lv_event_t*) {
   hideKeyboard();
   const Settings st = settings::get();
   if (st.ewAppId.isEmpty() || st.ewAppSecret.isEmpty()) {
-    setStatus(s_ewResult, "Prvo unesi i sačuvaj App ID i App Secret", C_ERR);
+    setStatus(s_ewResult, TR("Prvo unesi i sačuvaj App ID i App Secret", "First enter and save App ID and App Secret"), C_ERR);
     return;
   }
   if (WiFi.status() != WL_CONNECTED) {
-    setStatus(s_ewResult, "Panel nije povezan na Wi-Fi", C_ERR);
+    setStatus(s_ewResult, TR("Panel nije povezan na Wi-Fi", "The panel is not on Wi-Fi"), C_ERR);
     return;
   }
   const String url = portal::newLoginUrl();
   lv_qrcode_update(s_ewQr, url.c_str(), url.length());
   lv_obj_remove_flag(s_ewQr, LV_OBJ_FLAG_HIDDEN);
-  setStatus(s_ewResult, "Skeniraj QR kod telefonom (isti Wi-Fi) i prijavi se eWeLink nalogom. Link važi 10 min.",
+  setStatus(s_ewResult,
+            TR("Skeniraj QR kod telefonom (isti Wi-Fi) i prijavi se eWeLink nalogom. Link važi 10 min.",
+               "Scan the QR code with your phone (same Wi-Fi) and sign in with your eWeLink account. The link is valid for 10 min."),
             C_TEXT);
   Serial.printf("[ui] eWeLink prijava: %s\n", url.c_str());
 }
@@ -313,7 +323,7 @@ static void onEwConnect(lv_event_t*) {
 static void onEwLogout(lv_event_t*) {
   EWeLinkClient::clearTokens();
   settings::touchEWeLinkTokens();
-  setStatus(s_ewResult, "Odjavljeno sa eWeLink naloga", C_MUTED);
+  setStatus(s_ewResult, TR("Odjavljeno sa eWeLink naloga", "Signed out of eWeLink"), C_MUTED);
 }
 
 static void buildEWeLinkTab(lv_obj_t* tab) {
@@ -329,19 +339,19 @@ static void buildEWeLinkTab(lv_obj_t* tab) {
   lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
   lv_obj_set_style_pad_column(row, 12, 0);
   lv_obj_set_style_pad_top(row, 8, 0);
-  button(row, "Sačuvaj", onEwSave, true);
-  button(row, "Odjavi", onEwLogout, false);
+  button(row, TR("Sačuvaj", "Save"), onEwSave, true);
+  button(row, TR("Odjavi", "Sign out"), onEwLogout, false);
   s_ewStatus = label(left, "", F_SMALL, C_MUTED);
   lv_obj_set_width(s_ewStatus, LV_PCT(100));
   lv_label_set_long_mode(s_ewStatus, LV_LABEL_LONG_WRAP);
-  label(left, "Redirect URL za dev.ewelink.cc:", F_SMALL, C_MUTED);
+  label(left, TR("Redirect URL za dev.ewelink.cc:", "Redirect URL for dev.ewelink.cc:"), F_SMALL, C_MUTED);
   s_ewRedirect = label(left, "", F_SMALL, C_TEXT);
   lv_obj_set_width(s_ewRedirect, LV_PCT(100));
   lv_label_set_long_mode(s_ewRedirect, LV_LABEL_LONG_WRAP);
 
   lv_obj_t* right = column(tab, 310);
   lv_obj_set_flex_align(right, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  button(right, "Poveži nalog", onEwConnect, true);
+  button(right, TR("Poveži nalog", "Link account"), onEwConnect, true);
   s_ewQr = lv_qrcode_create(right);
   lv_qrcode_set_size(s_ewQr, 170);
   lv_qrcode_set_dark_color(s_ewQr, lv_color_black());
@@ -374,30 +384,33 @@ static void fillSwitchList() {
   const std::vector<SwitchState> items = g_store.snapshot();
   if (items.empty() && g_store.alarms().empty() && g_store.sensors().empty() && g_store.covers().empty() &&
       g_store.smokes().empty() && g_store.thermostats().empty() && g_store.binaries().empty()) {
-    label(s_swList, "Još nema uređaja. Poveži Tuya ili eWeLink nalog.", F_BODY, C_MUTED);
+    label(s_swList, TR("Još nema uređaja. Poveži Tuya ili eWeLink nalog.", "No devices yet. Link a Tuya or eWeLink account."),
+          F_BODY, C_MUTED);
     return;
   }
+  const char* offF = TR(" · nedostupna", " · offline");  // ženski rod (centrala, roletna)
+  const char* offM = TR(" · nedostupan", " · offline");
   for (const AlarmState& a : g_store.alarms()) {
-    addVisibilityRow(a.name, String("Alarm centrala · Tuya") + (a.online ? "" : " · nedostupna"), a.key());
+    addVisibilityRow(a.name, String(TR("Alarm centrala · Tuya", "Alarm hub · Tuya")) + (a.online ? "" : offF), a.key());
   }
   for (const SensorInfo& x : g_store.sensors()) {
-    addVisibilityRow(x.name, String("Senzor temperature · Tuya") + (x.online ? "" : " · nedostupan"), x.key());
+    addVisibilityRow(x.name, String(TR("Senzor temperature · Tuya", "Temperature sensor · Tuya")) + (x.online ? "" : offM),
+                     x.key());
   }
   for (const SmokeInfo& s : g_store.smokes()) {
-    addVisibilityRow(s.name, String("Detektor dima · Tuya") + (s.online ? "" : " · nedostupan"), s.key());
+    addVisibilityRow(s.name, String(TR("Detektor dima · Tuya", "Smoke detector · Tuya")) + (s.online ? "" : offM), s.key());
   }
   for (const CoverState& c : g_store.covers()) {
-    addVisibilityRow(c.name, String("Roletna · Tuya") + (c.online ? "" : " · nedostupna"), c.key());
+    addVisibilityRow(c.name, String(TR("Roletna · Tuya", "Blind · Tuya")) + (c.online ? "" : offF), c.key());
   }
   for (const ThermostatState& t : g_store.thermostats()) {
-    addVisibilityRow(t.name, String("Termostat · Tuya") + (t.online ? "" : " · nedostupan"), t.key());
+    addVisibilityRow(t.name, String(TR("Termostat · Tuya", "Thermostat · Tuya")) + (t.online ? "" : offM), t.key());
   }
   for (const BinarySensorState& b : g_store.binaries()) {
-    addVisibilityRow(b.name, String(binaryKindName(b.kind)) + " · Tuya" + (b.online ? "" : " · nedostupan"), b.key());
+    addVisibilityRow(b.name, String(binaryKindName(b.kind)) + " · Tuya" + (b.online ? "" : offM), b.key());
   }
   for (const SwitchState& it : items) {
-    addVisibilityRow(it.name, String(groupName(it.group)) + " · " + cloudName(it.cloud) + (it.online ? "" : " · nedostupan"),
-                     it.key());
+    addVisibilityRow(it.name, String(groupName(it.group)) + " · " + cloudName(it.cloud) + (it.online ? "" : offM), it.key());
   }
 }
 
@@ -430,8 +443,11 @@ static void addVisibilityRow(const String& title, const String& sub, const Strin
 
 static void buildSwitchesTab(lv_obj_t* tab) {
   lv_obj_set_flex_flow(tab, LV_FLEX_FLOW_COLUMN);
-  lv_obj_t* hint = label(tab, "Isključen uređaj panel potpuno ignoriše: nema ga u listi ni na slici, bez komandi i bez upozorenja.",
-                        F_SMALL, C_MUTED);
+  lv_obj_t* hint = label(tab,
+                         TR("Isključen uređaj panel potpuno ignoriše: nema ga u listi ni na slici, bez komandi i bez upozorenja.",
+                            "The panel fully ignores a device that is turned off here: not in the list or on the photo, "
+                            "no commands and no warnings."),
+                         F_SMALL, C_MUTED);
   lv_obj_set_width(hint, LV_PCT(100));  // prelama se u dva reda umesto da bude odsečen desno
   s_swList = lv_obj_create(tab);
   lv_obj_remove_style_all(s_swList);
@@ -464,26 +480,29 @@ static void onPinSave(lv_event_t*) {
     // Promena PIN-a traži stari PIN — inače bi bilo ko mogao da postavi svoj i isključi alarm
     const settings::PinResult r = settings::verifyAlarmPin(cur);
     if (r == settings::PinResult::Locked) {
-      setStatus(s_pinStatus, "Previše pogrešnih pokušaja. Sačekaj " + String((settings::alarmPinLockedMs() + 999) / 1000) + " s.", C_ERR);
+      setStatus(s_pinStatus,
+                TR("Previše pogrešnih pokušaja. Sačekaj ", "Too many wrong attempts. Wait ") +
+                    String((settings::alarmPinLockedMs() + 999) / 1000) + " s.",
+                C_ERR);
       return;
     }
     if (r == settings::PinResult::Wrong) {
-      setStatus(s_pinStatus, "Trenutni PIN nije tačan", C_ERR);
+      setStatus(s_pinStatus, TR("Trenutni PIN nije tačan", "The current PIN is wrong"), C_ERR);
       lv_textarea_set_text(s_pinCur, "");
       return;
     }
   }
   if (n1.length() < 4 || n1.length() > 8) {
-    setStatus(s_pinStatus, "Novi PIN mora imati 4 do 8 cifara", C_ERR);
+    setStatus(s_pinStatus, TR("Novi PIN mora imati 4 do 8 cifara", "The new PIN must have 4 to 8 digits"), C_ERR);
     return;
   }
   if (n1 != n2) {
-    setStatus(s_pinStatus, "Novi PIN i ponovljeni PIN se razlikuju", C_ERR);
+    setStatus(s_pinStatus, TR("Novi PIN i ponovljeni PIN se razlikuju", "The two new PINs don't match"), C_ERR);
     return;
   }
   settings::setAlarmPin(n1);
   refreshPinForm();
-  setStatus(s_pinStatus, "PIN je sačuvan", C_OK);
+  setStatus(s_pinStatus, TR("PIN je sačuvan", "PIN saved"), C_OK);
 }
 
 static lv_obj_t* pinField(lv_obj_t* parent, const char* title, lv_obj_t** labelOut = nullptr) {
@@ -497,13 +516,17 @@ static lv_obj_t* pinField(lv_obj_t* parent, const char* title, lv_obj_t** labelO
 
 static void buildAlarmTab(lv_obj_t* tab) {
   lv_obj_set_flex_flow(tab, LV_FLEX_FLOW_COLUMN);
-  lv_obj_t* info = label(tab, "PIN se traži za isključivanje alarma sa panela (uključivanje ne traži PIN). "
-                              "Posle 5 pogrešnih pokušaja panel se privremeno zaključava.", F_SMALL, C_MUTED);
+  lv_obj_t* info = label(tab,
+                         TR("PIN se traži za isključivanje alarma sa panela (uključivanje ne traži PIN). "
+                            "Posle 5 pogrešnih pokušaja panel se privremeno zaključava.",
+                            "The PIN is needed to disarm the alarm from the panel (arming needs no PIN). "
+                            "After 5 wrong attempts the panel locks for a while."),
+                         F_SMALL, C_MUTED);
   lv_obj_set_width(info, LV_PCT(100));
   lv_label_set_long_mode(info, LV_LABEL_LONG_WRAP);
-  s_pinCur = pinField(tab, "Trenutni PIN", &s_pinCurLbl);
-  s_pinNew = pinField(tab, "Novi PIN (4–8 cifara)");
-  s_pinNew2 = pinField(tab, "Ponovi novi PIN");
+  s_pinCur = pinField(tab, TR("Trenutni PIN", "Current PIN"), &s_pinCurLbl);
+  s_pinNew = pinField(tab, TR("Novi PIN (4–8 cifara)", "New PIN (4–8 digits)"));
+  s_pinNew2 = pinField(tab, TR("Ponovi novi PIN", "Repeat new PIN"));
   lv_obj_t* row = lv_obj_create(tab);
   lv_obj_remove_style_all(row);
   lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
@@ -511,8 +534,30 @@ static void buildAlarmTab(lv_obj_t* tab) {
   lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   lv_obj_set_style_pad_column(row, 16, 0);
   lv_obj_set_style_pad_top(row, 6, 0);
-  button(row, "Sačuvaj PIN", onPinSave, true);
+  button(row, TR("Sačuvaj PIN", "Save PIN"), onPinSave, true);
   s_pinStatus = label(row, "", F_SMALL, C_MUTED);
+}
+
+// Jezik: dugme izabranog jezika je istaknuto. Promena se čuva i panel se restartuje
+// (ekrani se prave na jeziku pokretanja); web PIN ostaje isti posle restarta.
+static void styleLangButtons() {
+  const Lang cur = settings::language();
+  for (int i = 0; i < 2; i++) {
+    const bool sel = (i == 0) == (cur == Lang::En);
+    lv_obj_set_style_bg_color(s_langBtn[i], sel ? C_ON : C_CARD, 0);
+    lv_obj_set_style_border_width(s_langBtn[i], sel ? 0 : 1, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(s_langBtn[i], 0), sel ? C_ON_TEXT : C_TEXT, 0);
+  }
+}
+
+static void onLangPicked(lv_event_t* e) {
+  lv_obj_t* b = static_cast<lv_obj_t*>(lv_event_get_target(e));
+  const Lang l = b == s_langBtn[0] ? Lang::En : Lang::Sr;
+  if (!settings::setLanguage(l)) return;
+  styleLangButtons();
+  // Poruka na izabranom jeziku (TR bi dao jezik ovog pokretanja)
+  ui::showToast(l == Lang::En ? "Restarting panel…" : "Restartujem panel…", false);
+  restart::soon(1500);
 }
 
 static void buildWebTab(lv_obj_t* tab) {
@@ -526,7 +571,9 @@ static void buildWebTab(lv_obj_t* tab) {
   lv_obj_set_style_border_width(s_webQr, 6, 0);
 
   lv_obj_t* right = column(tab, 480);
-  lv_obj_t* l = label(right, "Skeniraj QR kod telefonom (isti Wi-Fi): raspored temperatura, uređaji, ekran, fotografija i nalozi.",
+  lv_obj_t* l = label(right,
+                      TR("Skeniraj QR kod telefonom (isti Wi-Fi): raspored temperatura, uređaji, ekran, fotografija i nalozi.",
+                         "Scan the QR code with your phone (same Wi-Fi): layout, devices, screen, photo and accounts."),
                       F_SMALL, C_MUTED);
   lv_obj_set_width(l, LV_PCT(100));
   lv_label_set_long_mode(l, LV_LABEL_LONG_WRAP);
@@ -535,6 +582,20 @@ static void buildWebTab(lv_obj_t* tab) {
   s_webInfo = label(right, "", F_SMALL, C_MUTED);
   lv_obj_set_width(s_webInfo, LV_PCT(100));
   lv_label_set_long_mode(s_webInfo, LV_LABEL_LONG_WRAP);
+
+  // Jezik / Language (naziv na oba jezika, da ga nađe i ko ne razume trenutni)
+  lv_obj_t* lrow = lv_obj_create(right);
+  lv_obj_remove_style_all(lrow);
+  lv_obj_set_size(lrow, LV_PCT(100), LV_SIZE_CONTENT);
+  lv_obj_set_flex_flow(lrow, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(lrow, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_column(lrow, 12, 0);
+  lv_obj_set_style_pad_top(lrow, 6, 0);
+  lv_obj_remove_flag(lrow, LV_OBJ_FLAG_SCROLLABLE);
+  label(lrow, "Jezik / Language", F_SMALL, C_MUTED);
+  s_langBtn[0] = button(lrow, "English", onLangPicked, false);
+  s_langBtn[1] = button(lrow, "Srpski", onLangPicked, false);
+  styleLangButtons();
 }
 
 // ---------------------------------------------------------------- javno
@@ -557,9 +618,9 @@ static void refreshNetworkInfo(const SystemStatus& sys) {
   if (ip == s_lastIp && s_lastIp.length()) return;
   s_lastIp = ip;
   if (!sys.wifiConnected) {
-    lv_label_set_text(s_webUrl, "Panel nije na Wi-Fi mreži");
+    lv_label_set_text(s_webUrl, TR("Panel nije na Wi-Fi mreži", "The panel is not on Wi-Fi"));
     lv_label_set_text(s_webPin, "");
-    lv_label_set_text(s_ewRedirect, "(prvo poveži Wi-Fi)");
+    lv_label_set_text(s_ewRedirect, TR("(prvo poveži Wi-Fi)", "(connect Wi-Fi first)"));
     lv_label_set_text(s_tuyaHint, "");
     lv_obj_add_flag(s_webQr, LV_OBJ_FLAG_HIDDEN);
     return;
@@ -571,16 +632,20 @@ static void refreshNetworkInfo(const SystemStatus& sys) {
   lv_qrcode_update(s_webQr, qr.c_str(), qr.length());
   lv_obj_remove_flag(s_webQr, LV_OBJ_FLAG_HIDDEN);
   lv_label_set_text(s_ewRedirect, ("http://" + ip + "/ewelink/callback").c_str());
-  lv_label_set_text_fmt(s_tuyaHint, "Lakše: otvori %s u browseru (PIN %s)", url.c_str(), settings::webPin().c_str());
+  lv_label_set_text_fmt(s_tuyaHint, TR("Lakše: otvori %s u browseru (PIN %s)", "Easier: open %s in a browser (PIN %s)"),
+                        url.c_str(), settings::webPin().c_str());
 }
 
 static void refresh() {
   const SystemStatus sys = g_store.systemStatus();
   const Settings st = settings::get();
 
-  if (sys.wifiConnected) setStatus(s_wifiStatus, "Povezano: " + st.wifiSsid + "\nIP adresa: " + sys.ip, C_OK);
-  else if (st.wifiSsid.length()) setStatus(s_wifiStatus, "Povezivanje na " + st.wifiSsid + "…", C_WARN);
-  else setStatus(s_wifiStatus, "Wi-Fi nije podešen. Izaberi mrežu sa liste.", C_MUTED);
+  if (sys.wifiConnected)
+    setStatus(s_wifiStatus, TR("Povezano: ", "Connected: ") + st.wifiSsid + TR("\nIP adresa: ", "\nIP address: ") + sys.ip, C_OK);
+  else if (st.wifiSsid.length())
+    setStatus(s_wifiStatus, TR("Povezivanje na ", "Connecting to ") + st.wifiSsid + "…", C_WARN);
+  else setStatus(s_wifiStatus, TR("Wi-Fi nije podešen. Izaberi mrežu sa liste.", "Wi-Fi is not set up. Pick a network from the list."),
+                 C_MUTED);
 
   cloudStatusText(s_tuyaStatus, sys.tuya, "Tuya");
   cloudStatusText(s_ewStatus, sys.ewelink, "eWeLink");
@@ -588,7 +653,8 @@ static void refresh() {
 
   if (lv_tabview_get_tab_active(s_tv) == TAB_WEB) {
     char info[96];
-    snprintf(info, sizeof(info), "Uređaj: %s\nSlobodna memorija: %u KB RAM, %u KB PSRAM", WiFi.macAddress().c_str(),
+    snprintf(info, sizeof(info), TR("Uređaj: %s\nSlobodna memorija: %u KB RAM, %u KB PSRAM", "Device: %s\nFree memory: %u KB RAM, %u KB PSRAM"),
+             WiFi.macAddress().c_str(),
              (unsigned)(ESP.getFreeHeap() / 1024), (unsigned)(ESP.getFreePsram() / 1024));
     setText(s_webInfo, info);
   }
@@ -616,8 +682,8 @@ void build(lv_obj_t* mainScreen) {
   lv_obj_set_style_pad_column(back, 6, 0);
   lv_obj_add_event_cb(back, [](lv_event_t*) { close(); }, LV_EVENT_CLICKED, nullptr);
   label(back, LV_SYMBOL_LEFT, &lv_font_montserrat_20, C_TEXT);
-  label(back, "Nazad", F_BODY, C_TEXT);
-  lv_obj_t* title = label(top, "Podešavanja", F_NAME, C_TEXT);
+  label(back, TR("Nazad", "Back"), F_BODY, C_TEXT);
+  lv_obj_t* title = label(top, TR("Podešavanja", "Settings"), F_NAME, C_TEXT);
   lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
 
   // Tabovi
@@ -635,7 +701,7 @@ void build(lv_obj_t* mainScreen) {
   lv_obj_t* tWifi = lv_tabview_add_tab(s_tv, "Wi-Fi");
   lv_obj_t* tTuya = lv_tabview_add_tab(s_tv, "Tuya");
   lv_obj_t* tEw = lv_tabview_add_tab(s_tv, "eWeLink");
-  lv_obj_t* tSw = lv_tabview_add_tab(s_tv, "Uređaji");
+  lv_obj_t* tSw = lv_tabview_add_tab(s_tv, TR("Uređaji", "Devices"));
   lv_obj_t* tAlarm = lv_tabview_add_tab(s_tv, "Alarm");
   lv_obj_t* tWeb = lv_tabview_add_tab(s_tv, "Web");
   for (lv_obj_t* t : {tWifi, tTuya, tEw, tSw, tAlarm, tWeb}) {
@@ -664,7 +730,7 @@ void build(lv_obj_t* mainScreen) {
 void open(int tab) {
   // Podešavanja (i QR za telefon) štiti isti PIN kao isključivanje alarma
   if (!isOpen() && settings::hasAlarmPin()) {
-    pin_prompt::ask("Podešavanja", [tab] { openUnlocked(tab); });
+    pin_prompt::ask(TR("Podešavanja", "Settings"), [tab] { openUnlocked(tab); });
     return;
   }
   openUnlocked(tab);
@@ -680,12 +746,13 @@ void openUnlocked(int tab) {
   lv_tabview_set_active(s_tv, tab, LV_ANIM_OFF);
   fillSwitchList();
   refreshPinForm();
-  setStatus(s_pinStatus, settings::hasAlarmPin() ? "PIN je podešen" : "PIN još nije podešen", C_MUTED);
+  setStatus(s_pinStatus, settings::hasAlarmPin() ? TR("PIN je podešen", "PIN is set") : TR("PIN još nije podešen", "No PIN set yet"),
+            C_MUTED);
   refresh();
   lv_screen_load(s_scr);
   if (tab == TAB_WIFI && cloud::scanSeq() == 0) {
     cloud::requestWifiScan();
-    lv_label_set_text(s_scanLbl, "Skeniram…");
+    lv_label_set_text(s_scanLbl, TR("Skeniram…", "Scanning…"));
   }
 }
 
@@ -701,7 +768,7 @@ void update() {
   if (cloud::scanSeq() != s_seenScan) {
     s_seenScan = cloud::scanSeq();
     fillScanList();
-    lv_label_set_text(s_scanLbl, "Skeniraj");
+    lv_label_set_text(s_scanLbl, TR("Skeniraj", "Scan"));
   }
   if (portal::oauthSeq() != s_seenOauth) {
     s_seenOauth = portal::oauthSeq();

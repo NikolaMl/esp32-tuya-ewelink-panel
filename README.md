@@ -9,8 +9,9 @@ The home screen is a photo of your house. Lights, blinds, thermostats, temperatu
 sit on the photo where they really are, and you tap a window to switch that light on. Everything
 else is set up from your phone: scan a QR code on the panel and a small web app opens.
 
-> The user interface is in **Serbian (Latin script)**. This documentation is in English and quotes the
-> on-screen labels as they appear, e.g. **Podešavanja** (Settings).
+> The user interface is available in **English** (the default) and **Serbian (Latin script)**. Switch it
+> on the panel under **Settings → Web** or in the phone web app's **Accounts** tab (see
+> [Language](#language)). This documentation quotes the English on-screen labels.
 
 ---
 
@@ -25,7 +26,7 @@ else is set up from your phone: scan a QR code on the panel and a small web app 
   - A light can be a round button or an *invisible* touch area over the lamp in the photo, which
     glows when the light is on.
 - **Device list** with tiles grouped as Alarm, Scenes, Temperature, Lights, Switches, Sockets, Blinds,
-  Climate, Security and Other. It also has a **Ugasi svetla** (all lights off) button.
+  Climate, Security and Other. It also has a **Lights off** button.
 - **Device types**:
   - switches and lights (multi-channel included)
   - blinds/covers with position
@@ -40,6 +41,8 @@ else is set up from your phone: scan a QR code on the panel and a small web app 
   and arms the alarm.
 - **Phone web app** (QR code + PIN): layout editor, photo upload and cropping, scenes, enabling or
   disabling devices, screen timeouts, cloud accounts and Wi-Fi.
+- **English or Serbian**: the panel and the web app share one interface language, switchable on the
+  panel or from the phone.
 - **Saves API calls**: the panel refreshes every 10 s while someone uses it and every 5 min while
   idle, so it fits within free cloud plans.
 - **Stable display**: LVGL 9 in DIRECT mode with two PSRAM framebuffers and a bounce buffer. The
@@ -54,7 +57,7 @@ else is set up from your phone: scan a QR code on the panel and a small web app 
 | ![Home screen](docs/images/panel-home.png)<br>Home screen: devices placed on the house photo | ![Edit mode](docs/images/panel-edit.png)<br>Layout edit mode (long press on the photo) |
 | ![Device list](docs/images/panel-list.png)<br>Device list grouped by type | ![Thermostat](docs/images/panel-thermostat.png)<br>Thermostat pop-up |
 | ![Blind](docs/images/panel-cover.png)<br>Blind / cover pop-up | ![Smoke alert](docs/images/panel-smoke.png)<br>Smoke alarm warning |
-| ![Settings](docs/images/panel-settings.png)<br>**Podešavanja → Uređaji**: enable or disable devices | ![Alarm](docs/images/panel-alarm.png)<br>Alarm hub screen with the PIN keypad |
+| ![Settings](docs/images/panel-settings.png)<br>**Settings → Devices**: enable or disable devices | ![Alarm](docs/images/panel-alarm.png)<br>Alarm hub screen with the PIN keypad |
 
 ### Phone web app
 
@@ -96,17 +99,16 @@ pio run -t upload        # build and flash (USB port is auto-detected)
 pio device monitor       # serial log, 115200 baud
 ```
 
-1. **Wi-Fi**: on the panel tap the gear icon, then **Wi-Fi → Skeniraj** (scan). Pick your network,
-   enter the password, then tap **Sačuvaj i poveži** (save & connect). The ESP32 only supports
-   **2.4 GHz** Wi-Fi.
+1. **Wi-Fi**: on the panel tap the gear icon, then **Wi-Fi → Scan**. Pick your network, enter the
+   password, then tap **Save and connect**. The ESP32 only supports **2.4 GHz** Wi-Fi.
 2. **Tuya / Smart Life**: create a free cloud project on [iot.tuya.com](https://iot.tuya.com) and link your
    Smart Life app account to it. Then enter the **Access ID** and **Access Secret** on the panel or in
    the web app. See [docs/SETUP.md](docs/SETUP.md#tuya--smart-life).
 3. **eWeLink / Sonoff** (optional): register as a personal developer on
    [dev.ewelink.cc](https://dev.ewelink.cc) and create an app. Enter its **App ID** and **App Secret**,
-   then tap **Poveži nalog** (link account) and sign in. See
+   then tap **Link account** and sign in. See
    [docs/SETUP.md](docs/SETUP.md#ewelink--sonoff).
-4. **Phone web app**: open **Podešavanja → Web** on the panel and scan the QR code with a phone on the
+4. **Phone web app**: open **Settings → Web** on the panel and scan the QR code with a phone on the
    same Wi-Fi. Drag your devices onto the house photo, upload your own photo and create scenes.
 
 Optionally, you can bake initial Wi-Fi and cloud keys into the firmware: copy
@@ -127,26 +129,26 @@ The full step-by-step guide is in **[docs/SETUP.md](docs/SETUP.md)**.
 | Wi-Fi icon (top right) | Red when Wi-Fi is not connected. |
 | Padlock (top right) | Alarm state: open = disarmed, closed = armed. Tap it to open the alarm screen. |
 | List button | Opens the **device list**. |
-| Gear | Opens **Podešavanja** (settings). |
+| Gear | Opens **Settings**. |
 | Light button on the photo | Tap toggles the light. It turns yellow when the light is on. |
 | *Invisible* light area | A faint circle over the lamp in the photo; it glows when the light is on. |
-| Blind on the photo | Tap opens **Gore / Stop / Dole** (up / stop / down) with the position, if the module reports one. |
+| Blind on the photo | Tap opens **Up / Stop / Down** with the position, if the module reports one. |
 | Thermostat on the photo | Shows the current temperature and the target. Tap opens the thermostat pop-up. |
 | Temperature on the photo | Display only. |
-| Door / motion / smoke on the photo | Shows the state, e.g. *Otvoreno* (open), *Pokret* (motion), *DIM!* (smoke). |
+| Door / motion / smoke on the photo | Shows the state, e.g. *Open*, *Motion*, *SMOKE!*. |
 | Scene button **▶ Name** | Runs the scene. |
 | Swipe left / right | Moves to the next or previous page. Dots at the bottom show the current page. |
-| Long press on the photo (~1 s) | **Edit mode**: drag the markers, then **Gotovo** (done). **Na telefonu** (on phone) opens the QR code for the web app. |
+| Long press on the photo (~1 s) | **Edit mode**: drag the markers, then **Done**. **On phone** opens the QR code for the web app. |
 
 When the screen turns off, the panel always goes back to the first page.
 
 ### Device list
 
 - Tiles are grouped by type. Tap a switch or light tile to toggle it; the tile is yellow when on.
-- **Ugasi svetla** turns off every light and wall switch that is on. It leaves sockets, pumps and
+- **Lights off** turns off every light and wall switch that is on. It leaves sockets, pumps and
   other devices alone.
 - Blind tiles have **▲ ■ ▼** buttons. Tapping the tile opens the pop-up with the position.
-- Thermostat tiles show *current → target* and "greje" (heating). Tapping one opens the pop-up.
+- Thermostat tiles show *current → target* and "heating". Tapping one opens the pop-up.
 - The **Tuya** and **eWeLink** dots in the header show the connection: green = connected,
   yellow = connecting, red = error. Tap a dot to see the message.
 - The list returns to the home screen by itself after 1 minute without touch.
@@ -156,24 +158,24 @@ When the screen turns off, the panel always goes back to the first page.
 - **Thermostat**:
   - **−** and **+** change the target right away on screen. The command is sent 1.2 s after your
     last tap, so five taps send one command.
-  - **Uključi / Isključi** (on/off) appears only if the device has a power switch.
+  - **Turn on / Turn off** appears only if the device has a power switch.
   - The pop-up closes after 30 s without touch.
-- **Blind**: **Gore / Stop / Dole** plus the position. It also closes after 30 s without touch.
+- **Blind**: **Up / Stop / Down** plus the position. It also closes after 30 s without touch.
 
 ### Alarm (Tuya alarm hub)
 
 - **Arming** (away or home) needs no PIN. The panel starts the exit-delay countdown at once.
-- **Disarming** needs the PIN you set on the panel under **Podešavanja → Alarm** (4–8 digits).
+- **Disarming** needs the PIN you set on the panel under **Settings → Alarm** (4–8 digits).
   - After 5 wrong attempts the keypad locks for 30 s. Each further wrong attempt doubles the lock,
     up to 16 min.
   - The PIN is stored only as a salted SHA-256 hash.
 - When the hub reports an **alarm**, the screen wakes up and shows the alarm screen with the zone name.
-- Once an alarm PIN is set, it also protects **Podešavanja**.
+- Once an alarm PIN is set, it also protects **Settings**.
 
 ### Smoke detectors
 
 When a smoke detector reports smoke, the screen wakes up and shows a full-screen red warning.
-It stays until you tap **Video sam** ("I've seen it"); a new alarm opens it again. The screen does
+It stays until you tap **Got it**; a new alarm opens it again. The screen does
 not turn off while the warning is unacknowledged.
 
 > The panel sees cloud state only when it refreshes (every 10 s while in use, up to 5 min while
@@ -182,8 +184,8 @@ not turn off while the warning is unacknowledged.
 
 ### Scenes
 
-A scene is one button that sets several devices. Scenes are created in the web app (**Scene** tab)
-and run from the panel: from the **Scene** section of the list, or from a **▶** button on the photo.
+A scene is one button that sets several devices. Scenes are created in the web app (**Scenes** tab)
+and run from the panel: from the **Scenes** section of the list, or from a **▶** button on the photo.
 
 - Only commands that change something are sent.
 - If the scene disarms an armed alarm, the panel asks for the PIN first.
@@ -201,47 +203,59 @@ Limits: 16 scenes with up to 32 actions each.
 ### Screen timeouts
 
 The screen dims after 15 s and turns off after 20 s. You can change both in the web app
-(**Ekran** tab; 0 = never off). While **Podešavanja** is open, the screen stays on for about
+(**Screen** tab; 0 = never off). While **Settings** is open, the screen stays on for about
 2 minutes, so you have time to type keys or scan a QR code.
 
 - The first touch only wakes the screen; it never presses a button.
 - During an alarm, the exit delay or a smoke warning, the screen stays on.
 
+### Language
+
+The panel and the phone web app share one interface language: **English** (the default on a fresh
+panel) or **Serbian** (Latin script). You can switch it in two places:
+
+- **On the panel**: **Settings → Web**, row **Jezik / Language**, buttons **English** and **Srpski**.
+- **In the web app**: **Accounts** tab, first card **Language** (**English** / **Srpski**).
+
+The panel saves the choice and restarts within a few seconds to apply it. The web app switches at once
+and stays logged in, because the web PIN is kept across this restart.
+
 ---
 
 ## Phone web app
 
-Open **Podešavanja → Web** on the panel (or long press the photo, then **Na telefonu**) and scan the
+Open **Settings → Web** on the panel (or long press the photo, then **On phone**) and scan the
 QR code with a phone on the **same Wi-Fi**. The QR code already contains the PIN.
 
 | Tab | What you set there |
 |---|---|
-| **Raspored** (Layout) | Home screen pages and what is on them. See below. |
-| **Scene** (Scenes) | Create, rename and delete scenes, pick a state for each device, and run a scene (**▶ Pokreni**) to test it. Scenes are stored on the panel in `/scenes.json`. |
-| **Uređaji** (Devices) | All devices by group, each with an on/off toggle and a source icon (see below). |
-| **Ekran** (Screen) | Seconds until the screen dims or turns off. |
-| **Nalozi** (Accounts) | Tuya data center, Access ID/Secret; eWeLink App ID/Secret and **Poveži nalog**; Wi-Fi. |
+| **Layout** | Home screen pages and what is on them. See below. |
+| **Scenes** | Create, rename and delete scenes, pick a state for each device, and run a scene (**▶ Run**) to test it. Scenes are stored on the panel in `/scenes.json`. |
+| **Devices** | All devices by group, each with an on/off toggle and a source icon (see below). |
+| **Screen** | Seconds until the screen dims or turns off. |
+| **Accounts** | Interface language (see [Language](#language)); Tuya data center, Access ID/Secret; eWeLink App ID/Secret and **Link account**; Wi-Fi. |
 
-**Raspored** (Layout) in detail:
+**Layout** in detail:
 
-- Page tabs across the top; **+ Deo** adds a page.
+- Page tabs across the top; **+ Page** adds a page.
 - Per page:
   - a name;
-  - **📷 Fotografija** to pick a photo, then crop it with your finger or sliders while you see the
+  - **📷 Photo** to pick a photo, then crop it with your finger or sliders while you see the
     markers on it, then send it to the panel;
-  - **Vrati ugrađenu** to go back to the built-in photo;
-  - **Obriši deo** to delete the page.
+  - **Restore built-in** to go back to the built-in photo (on the other pages this button is
+    **Remove photo**);
+  - **Delete page** to delete the page.
 - Drag devices from the list onto the photo to place them, and drag a marker off the photo to
   remove it.
-- Tapping a light or blind marker picks its style: **Dugme** (button) or **Nevidljivo** (invisible
+- Tapping a light or blind marker picks its style: **● Button** or **◌ Invisible** (invisible
   area). The same switch can be placed several times, e.g. once on every lamp.
-- **Sačuvaj** saves the layout, and the panel updates at once.
+- **Save layout** saves the layout, and the panel updates at once.
 
-**Source icons** in **Uređaji** (Devices): orange **T** = Tuya, blue **e** = eWeLink, grey
+**Source icons** in **Devices**: orange **T** = Tuya, blue **e** = eWeLink, grey
 **P** = a scene made on the panel. The same icons appear in the Layout palette. In the scene editor,
 device names end with "· Tuya" or "· eWeLink".
 
-**Disabling a device** (toggle in **Uređaji**, or **Podešavanja → Uređaji** on the panel) means the
+**Disabling a device** (toggle in **Devices**, or **Settings → Devices** on the panel) means the
 panel **ignores it completely**:
 
 - it disappears from the list and the photo;
@@ -294,8 +308,8 @@ The refresh intervals are in [include/config.h](include/config.h) (`POLL_ACTIVE_
 
 - **Web PIN**:
   - The web app is plain **HTTP on your LAN**. Every request needs a random 6-digit PIN that is
-    generated again at **every boot**. It is shown on the panel (**Podešavanja → Web**) and built
-    into the QR code.
+    generated again at **every boot** (only the panel's own restart after a language change keeps
+    it). It is shown on the panel (**Settings → Web**) and built into the QR code.
   - After 10 *different* wrong PINs, web access locks for 60 s (HTTP 429). A tab left open from before
     a reboot keeps repeating the same stale PIN; that is not counted as guessing, and the page simply
     asks for the new PIN.
@@ -322,11 +336,11 @@ The refresh intervals are in [include/config.h](include/config.h) (`POLL_ACTIVE_
 | `Tuya 1106` | Your Smart Life account is not linked to the cloud project (Devices → Link App Account). |
 | `Tuya 28841002` | The Tuya trial expired. Extend it on iot.tuya.com. |
 | `Tuya 28841101` / `28841105` | IoT Core service is not added, or the project's data center doesn't match your app account's region. |
-| eWeLink "nalog nije povezan" (account not linked) | Sign-in never reached the panel. The phone must be on the **same Wi-Fi** (not mobile data), and the Redirect URL on dev.ewelink.cc must be exactly `http://<panel-ip>/ewelink/callback`. |
-| eWeLink "prijava istekla" (session expired) | The refresh token expired (panel off for more than 60 days). Tap **Poveži nalog** again. |
-| eWeLink "mesečni limit" | The 50,000 calls/month quota is used up. |
-| A device is missing | Check the serial log for `[tuya] nije podrzan: <name> (kategorija X) DP: …`: that category isn't supported yet (see [docs/DEVICES.md](docs/DEVICES.md#adding-support-for-a-new-device)). Also check that it isn't disabled under **Uređaji**. |
-| Web app: "Pogrešan PIN" (wrong PIN) | The panel rebooted and the PIN changed. Scan the QR code again. |
+| eWeLink "account not linked" | Sign-in never reached the panel. The phone must be on the **same Wi-Fi** (not mobile data), and the Redirect URL on dev.ewelink.cc must be exactly `http://<panel-ip>/ewelink/callback`. |
+| eWeLink "login expired" | The refresh token expired (panel off for more than 60 days). Tap **Link account** again. |
+| eWeLink "monthly API call limit reached" | The 50,000 calls/month quota is used up. |
+| A device is missing | Check the serial log for `[tuya] nije podrzan: <name> (kategorija X) DP: …`: that category isn't supported yet (see [docs/DEVICES.md](docs/DEVICES.md#adding-support-for-a-new-device)). Also check that it isn't disabled under **Devices**. |
+| Web app: "Wrong PIN" | The panel rebooted and the PIN changed. Scan the QR code again. |
 | Picture flickers / dashes | See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#display-pipeline-and-flicker); the `rf` console command logs every redraw. |
 | Panel crashed or rebooted | The boot log prints the reset reason and, after a crash, a coredump summary (see DEVELOPMENT.md). |
 

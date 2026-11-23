@@ -3,6 +3,7 @@
 #include "config.h"
 #include "model/settings.h"
 #include "ui/theme.h"
+#include "util/i18n.h"
 
 namespace pin_prompt {
 
@@ -22,7 +23,7 @@ static void setText(lv_obj_t* l, const String& t) {
 
 static void showDots() {
   if (s_pin.isEmpty()) {
-    setText(s_dots, "Unesi PIN");
+    setText(s_dots, TR("Unesi PIN", "Enter PIN"));
     lv_obj_set_style_text_color(s_dots, C_MUTED, 0);
     return;
   }
@@ -40,7 +41,7 @@ static void cancel() {
 
 static void submit() {
   if (s_pin.length() < PIN_MIN) {
-    setText(s_msg, "PIN ima najmanje 4 cifre");
+    setText(s_msg, TR("PIN ima najmanje 4 cifre", "The PIN has at least 4 digits"));
     return;
   }
   const settings::PinResult r = settings::verifyAlarmPin(s_pin);
@@ -52,7 +53,7 @@ static void submit() {
     s_onOk = nullptr;
     if (cb) cb();  // učita zaštićeni ekran
   } else if (r == settings::PinResult::Wrong) {
-    setText(s_msg, "Pogrešan PIN");
+    setText(s_msg, TR("Pogrešan PIN", "Wrong PIN"));
   }
   // Locked: poruku ispisuje update()
 }
@@ -97,12 +98,15 @@ void build() {
   lv_obj_set_style_pad_column(back, 6, 0);
   lv_obj_add_event_cb(back, [](lv_event_t*) { cancel(); }, LV_EVENT_CLICKED, nullptr);
   label(back, LV_SYMBOL_LEFT, &lv_font_montserrat_20, C_TEXT);
-  label(back, "Otkaži", F_BODY, C_TEXT);
+  label(back, TR("Otkaži", "Cancel"), F_BODY, C_TEXT);
   s_title = label(s_scr, "", F_NAME, C_TEXT);
   lv_obj_align(s_title, LV_ALIGN_TOP_MID, 0, 16);
 
   // Levo: objašnjenje; desno: tastatura
-  lv_obj_t* info = label(s_scr, "Unesi PIN alarma.\nIsti PIN se koristi za isključivanje alarma.", F_BODY, C_MUTED);
+  lv_obj_t* info = label(s_scr,
+                         TR("Unesi PIN alarma.\nIsti PIN se koristi za isključivanje alarma.",
+                            "Enter the alarm PIN.\nThe same PIN is used to disarm the alarm."),
+                         F_BODY, C_MUTED);
   lv_obj_set_width(info, 340);
   lv_label_set_long_mode(info, LV_LABEL_LONG_WRAP);
   lv_obj_align(info, LV_ALIGN_LEFT_MID, 40, -40);
@@ -155,7 +159,7 @@ void update() {
   s_lastTick = millis();
   const uint32_t ms = settings::alarmPinLockedMs();
   if (ms) {
-    setText(s_msg, "Previše pogrešnih pokušaja. Sačekaj " + String((ms + 999) / 1000) + " s.");
+    setText(s_msg, TR("Previše pogrešnih pokušaja. Sačekaj ", "Too many wrong attempts. Wait ") + String((ms + 999) / 1000) + " s.");
     s_showedLock = true;
   } else if (s_showedLock) {
     s_showedLock = false;

@@ -1,6 +1,7 @@
 #include "net/cloud_task.h"
 
 #include <WiFi.h>
+#include <esp_sntp.h>
 #include <freertos/queue.h>
 #include <freertos/semphr.h>
 
@@ -12,6 +13,7 @@
 #include "model/settings.h"
 #include "net/ewelink_client.h"
 #include "net/tuya_client.h"
+#include "util/i18n.h"
 
 namespace cloud {
 
@@ -145,7 +147,16 @@ std::vector<WifiNetwork> scanResults() {
 // ---------------------------------------------------------------- interno (mrežni task)
 
 static bool isActive() { return millis() - s_lastActivity < ACTIVE_WINDOW_MS; }
-static bool timeSynced() { return time(nullptr) > 1700000000; }
+// Vreme za potpisivanje (Tuya) i prvi HTTPS. Posle softverskog restarta sat je već tačan, ali SNTP
+// tek čeka DNS odgovor; HTTPClient tada zove hostByName -> dns_clear_cache() bez TCPIP zaključavanja
+// (Arduino jezgro), što pozove SNTP DNS callback u ovom tasku i obori panel (assert u udp_new).
+// Zato se čeka stvarna SNTP sinhronizacija; ako NTP ne prolazi (blokiran), posle 20 s važi i sat.
+static std::atomic<bool> s_sntpDone{false};
+static uint32_t s_wifiUpAt = 0;  // millis() kad je Wi-Fi povezan (0 = nije)
+static bool timeSynced() {
+  if (s_sntpDone) return true;
+  return time(nullptr) > 1700000000 && s_wifiUpAt && millis() - s_wifiUpAt > 20000;
+}
 
 static CloudProvider* providerFor(CloudKind k) {
   return k == CloudKind::Tuya ? static_cast<CloudProvider*>(s_tuya) : static_cast<CloudProvider*>(s_ewelink);
@@ -165,7 +176,7 @@ static void runAlarmCommand(const Command& c) {
   const uint32_t t0 = millis();
   const bool ok = s_tuya && s_tuya->configured() && WiFi.status() == WL_CONNECTED &&
                   s_tuya->setAlarmMode(id, c.mode, err);
-  if (!ok && err.isEmpty()) err = WiFi.status() == WL_CONNECTED ? "komanda nije uspela" : "nema Wi-Fi veze";
+  if (!ok && err.isEmpty()) err = WiFi.status() == WL_CONNECTED ? TR("komanda nije uspela", "command failed") : TR("nema Wi-Fi veze", "no Wi-Fi connection");
   Serial.printf("[alarm] %s -> %s: %s (%u ms) %s\n", info.name.c_str(), alarmModeToTuya(c.mode), ok ? "OK" : "GRESKA",
                 (unsigned)(millis() - t0), err.c_str());
   g_store.alarmCommandFinished(id, ok, c.mode);
@@ -186,7 +197,7 @@ static void runCoverCommand(const Command& c) {
   const uint32_t t0 = millis();
   const bool ok = s_tuya && s_tuya->configured() && WiFi.status() == WL_CONNECTED &&
                   s_tuya->setCover(info, c.action, err);
-  if (!ok && err.isEmpty()) err = WiFi.status() == WL_CONNECTED ? "komanda nije uspela" : "nema Wi-Fi veze";
+  if (!ok && err.isEmpty()) err = WiFi.status() == WL_CONNECTED ? TR("komanda nije uspela", "command failed") : TR("nema Wi-Fi veze", "no Wi-Fi connection");
   Serial.printf("[roletna] %s -> %s: %s (%u ms) %s\n", info.name.c_str(), coverActionToTuya(c.action),
                 ok ? "OK" : "GRESKA", (unsigned)(millis() - t0), err.c_str());
   g_store.coverCommandFinished(key, ok);
@@ -207,7 +218,7 @@ static void runThermoCommand(const Command& c) {
   const uint32_t t0 = millis();
   const bool ok = s_tuya && s_tuya->configured() && WiFi.status() == WL_CONNECTED &&
                   s_tuya->setThermostat(info, c.power, c.temp, err);
-  if (!ok && err.isEmpty()) err = WiFi.status() == WL_CONNECTED ? "komanda nije uspela" : "nema Wi-Fi veze";
+  if (!ok && err.isEmpty()) err = WiFi.status() == WL_CONNECTED ? TR("komanda nije uspela", "command failed") : TR("nema Wi-Fi veze", "no Wi-Fi connection");
   Serial.printf("[termostat] %s ->%s%s: %s (%u ms) %s\n", info.name.c_str(),
                 c.power < 0 ? "" : c.power ? " ukljuci" : " iskljuci", isnan(c.temp) ? "" : (" " + String(c.temp, 1)).c_str(),
                 ok ? "OK" : "GRESKA", (unsigned)(millis() - t0), err.c_str());
@@ -241,7 +252,7 @@ static void runCommand(const Command& c) {
   String err;
   const uint32_t t0 = millis();
   const bool ok = p && p->configured() && WiFi.status() == WL_CONNECTED && p->setSwitch(info, c.target, err);
-  if (!ok && err.isEmpty()) err = WiFi.status() == WL_CONNECTED ? "komanda nije uspela" : "nema Wi-Fi veze";
+  if (!ok && err.isEmpty()) err = WiFi.status() == WL_CONNECTED ? TR("komanda nije uspela", "command failed") : TR("nema Wi-Fi veze", "no Wi-Fi connection");
   Serial.printf("[cloud] %s %s -> %s (%u ms) %s\n", key.c_str(), c.target ? "ON" : "OFF", ok ? "OK" : "GRESKA",
                 (unsigned)(millis() - t0), err.c_str());
   g_store.commandFinished(key, ok, c.target);
@@ -358,9 +369,9 @@ static void updateProviderStatus(CloudProvider* p) {
   if (p->configured()) {
     g_store.setCloudStatus(p->kind(), LinkState::Connecting);
   } else if (p->kind() == CloudKind::EWeLink && s_cfg.ewAppId.length()) {
-    g_store.setCloudStatus(p->kind(), LinkState::Disabled, "nalog nije povezan");
+    g_store.setCloudStatus(p->kind(), LinkState::Disabled, TR("nalog nije povezan", "account not linked"));
   } else {
-    g_store.setCloudStatus(p->kind(), LinkState::Disabled, "nije podešen");
+    g_store.setCloudStatus(p->kind(), LinkState::Disabled, TR("nije podešen", "not set up"));
   }
 }
 
@@ -448,6 +459,7 @@ static void task(void*) {
   WiFi.setHostname("smart-light-panel");
   WiFi.setAutoReconnect(true);
   WiFi.setSleep(false);  // brži odziv komandi
+  sntp_set_time_sync_notification_cb([](struct timeval*) { s_sntpDone = true; });
   configTzTime(TIMEZONE, NTP_SERVER_1, NTP_SERVER_2);
 
   bool timeLogged = false;
@@ -457,6 +469,8 @@ static void task(void*) {
     if (s_scanRequested) doScan();
 
     const bool up = WiFi.status() == WL_CONNECTED;
+    if (!up) s_wifiUpAt = 0;
+    else if (!s_wifiUpAt) s_wifiUpAt = millis() | 1;
     g_store.setWifi(up, up ? WiFi.localIP().toString() : String());
     if (!timeLogged && timeSynced()) {
       timeLogged = true;
@@ -502,7 +516,8 @@ static void task(void*) {
       }
       if (s_ewelink && ps.provider == s_ewelink && s_ewelink->sessionExpired()) {
         g_store.setCloudStatus(CloudKind::EWeLink, LinkState::Error,
-                               "eWeLink: prijava istekla - ponovo poveži nalog (Podešavanja)");
+                               TR("eWeLink: prijava istekla - ponovo poveži nalog (Podešavanja)",
+                                  "eWeLink: login expired - link the account again (Settings)"));
       }
     }
 

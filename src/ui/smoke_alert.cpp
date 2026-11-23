@@ -6,6 +6,7 @@
 #include "model/device_store.h"
 #include "model/settings.h"
 #include "ui/theme.h"
+#include "util/i18n.h"
 
 namespace smoke_alert {
 
@@ -48,11 +49,13 @@ void build() {
   lv_obj_set_style_text_font(icon, &lv_font_montserrat_40, 0);
   lv_obj_set_style_text_color(icon, lv_color_white(), 0);
   lv_label_set_text(icon, LV_SYMBOL_WARNING);
-  label(s_scr, F_HUGE, "DIM");
+  label(s_scr, F_HUGE, TR("DIM", "SMOKE"));
   s_names = label(s_scr, F_TITLE, "");
   lv_obj_set_width(s_names, LCD_H_RES - 80);
   lv_label_set_long_mode(s_names, LV_LABEL_LONG_WRAP);
-  lv_obj_t* hint = label(s_scr, F_BODY, "Detektor je javio dim. Proveri kuću.\nPanel stanje osvežava sa zakašnjenjem (do 5 min).");
+  lv_obj_t* hint = label(s_scr, F_BODY,
+                         TR("Detektor je javio dim. Proveri kuću.\nPanel stanje osvežava sa zakašnjenjem (do 5 min).",
+                            "A detector reported smoke. Check the house.\nThe panel updates with a delay (up to 5 min)."));
   lv_obj_set_style_text_color(hint, lv_color_hex(0xFFD9D6), 0);
 
   lv_obj_t* ok = lv_obj_create(s_scr);
@@ -65,7 +68,7 @@ void build() {
   lv_obj_set_style_bg_color(ok, lv_color_hex(0xFFD9D6), LV_STATE_PRESSED);
   lv_obj_add_flag(ok, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(ok, [](lv_event_t*) { acknowledge(); }, LV_EVENT_CLICKED, nullptr);
-  lv_obj_t* t = label(ok, F_NAME, "Video sam");
+  lv_obj_t* t = label(ok, F_NAME, TR("Video sam", "Got it"));
   lv_obj_set_style_text_color(t, lv_color_hex(0xB3261E), 0);
   lv_obj_center(t);
 

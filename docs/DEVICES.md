@@ -60,8 +60,8 @@ boolean.
 
 **Commands**: `POST /v1.0/devices/{id}/commands` with `{code: <DP>, value: true|false}`.
 
-Thermostats and air conditioners are deliberately **not** in the switch list. Otherwise **Ugasi
-svetla** (all lights off) or a stray tap could switch off the heating. They get their own thermostat
+Thermostats and air conditioners are deliberately **not** in the switch list. Otherwise
+**Lights off** or a stray tap could switch off the heating. They get their own thermostat
 handling instead.
 
 To support more switch categories, add them to `TUYA_CATEGORIES`. Set `"*"` to accept every category
@@ -88,7 +88,7 @@ that has `switch*` DPs.
 | Power | `switch` (boolean). If it's missing, the pop-up has no on/off button. |
 | Target temperature | `temp_set` |
 | Current temperature | first available of `va_temperature`, `temp_current`, `temp_indoor`, `cur_temp`, `temperature` |
-| Mode (display only) | `mode`, shown in Serbian: `auto`/`program`/`schedule`/`smart` = *po rasporedu* (schedule), `manual`/`hold` = *ručno* (manual), `eco`, `holiday`/`away`, `comfort`, `frost`/`antifreeze`, `hot`/`heat`, `cold`/`cool`, `wind`/`fan`, `dry` |
+| Mode (display only) | `mode`, shown in the interface language: `auto`/`program`/`schedule`/`smart` = *schedule*, `manual`/`hold`/`temp_manual` = *manual*, `eco` = *eco*, `holiday`/`away` = *holiday*, `comfort` = *comfort*, `frost`/`antifreeze` = *frost protection*, `hot`/`heat` = *heating*, `cold`/`cool` = *cooling*, `wind`/`fan` = *fan*, `dry`/`dehumidification` = *dry*; any other value is shown as reported |
 | Heating indicator | `work_state` containing `heat`/`warm` (or `hot`), `valve_state` = `open`, `valve_open_degree` / `valve_opening` > 0 |
 
 **Scale and range**:
@@ -125,17 +125,17 @@ Any device with a current-temperature DP becomes a temperature tile, display onl
 
 | Kind | DP | Active when |
 |---|---|---|
-| Door / window (`mcs`) | `doorcontact_state` | `true` (also accepts `"open"` / `"1"`) → *Otvoreno* (open) |
-| Motion (`pir`) | `pir` | `"pir"` → *Pokret* (motion) |
-| Presence, mmWave (`hps`) | `presence_state` | `"presence"` → *Pokret* |
+| Door / window (`mcs`) | `doorcontact_state` | `true` (also accepts `"open"` / `"1"`) → *Open* |
+| Motion (`pir`) | `pir` | `"pir"` → *Motion* |
+| Presence, mmWave (`hps`) | `presence_state` | `"presence"` → *Motion* |
 
 Extra DPs that are shown:
 - `battery_percentage` / `va_battery`, with "low" at 20% or less;
 - `battery_state` = `low`;
 - `temper_alarm` (removed from its mount).
 
-The tile shows when the state changed: *Otvoreno od 14:32* (open since 14:32), or for motion
-*poslednji u 14:32* (last at 14:32).
+The tile shows when the state changed: *since 14:32* for a door or window, or *last at 14:32* for
+motion.
 
 > State is read on the normal refresh (10 s while in use, 5 min while idle). A short motion between two
 > refreshes can be missed. These tiles are for information, not for intrusion detection.
@@ -150,10 +150,10 @@ The tile shows when the state changed: *Otvoreno od 14:32* (open since 14:32), o
 | Smoke | `smoke_sensor_status` = `alarm`, or `smoke_sensor_state` = `"1"` |
 | Battery | `battery_percentage` or `battery_state` (`low`) |
 | Tamper | `temper_alarm` |
-| Self-test | `checking_result` = `check_failure` → *Samotest nije prošao* (self-test failed) |
+| Self-test | `checking_result` = `check_failure` → *Self-test failed* |
 
-The tile shows *U redu* (OK), *DIM!* (smoke), *Slaba baterija* (low battery), *Skinut sa nosača*
-(removed from mount), *Samotest nije prošao* or *Nedostupan* (offline).
+The tile shows *OK*, *SMOKE!*, *Low battery*, *Removed from mount*, *Self-test failed* or
+*Offline*.
 
 Smoke opens the red full-screen warning. The `dl` debug command prints the last 7 days of smoke DP
 history from the Tuya cloud.
@@ -214,14 +214,14 @@ smoke, door/motion sensors, the alarm hub and scenes have their own sections.
 
 | Group | Tuya categories | eWeLink UIIDs |
 |---|---|---|
-| **Svetla** (Lights) | `dj dd xdd fwd dc tgq tgkg gyd sxd tyndj fsd tyd` | 22, 36, 44, 57, 59, 103, 104, 135, 136, 137, 173 (bulbs, D1 dimmer, L1/L2 strips) |
-| **Prekidači** (Switches) | `kg tdq dlq cjkg ckqdkg wxkg` | all others (Basic, Mini, T-series, Dual, …) |
-| **Utičnice** (Sockets) | `cz pc wkcz` | 5, 32, 182, 190, 262, 276, 277 (POW, S26/S40, POWR3, …) |
-| **Klima** (Climate) | `wk wkf wsdcg kt ktkzq qn fs fskg jsq cs kj xfj rs bh` | 15, 181 (TH / THR3) |
-| **Sigurnost** (Security) | `mal ywbj rqbj cobj sj mcs pir hps sgbj sp ms jtmspro sos` | – |
-| **Ostalo** (Other) | everything else | – |
+| **Lights** | `dj dd xdd fwd dc tgq tgkg gyd sxd tyndj fsd tyd` | 22, 36, 44, 57, 59, 103, 104, 135, 136, 137, 173 (bulbs, D1 dimmer, L1/L2 strips) |
+| **Switches** | `kg tdq dlq cjkg ckqdkg wxkg` | all others (Basic, Mini, T-series, Dual, …) |
+| **Sockets** | `cz pc wkcz` | 5, 32, 182, 190, 262, 276, 277 (POW, S26/S40, POWR3, …) |
+| **Climate** | `wk wkf wsdcg kt ktkzq qn fs fskg jsq cs kj xfj rs bh` | 15, 181 (TH / THR3) |
+| **Security** | `mal ywbj rqbj cobj sj mcs pir hps sgbj sp ms jtmspro sos` | – |
+| **Other** | everything else | – |
 
-**Ugasi svetla** (all lights off) switches off only the **Lights** and **Switches** groups.
+**Lights off** switches off only the **Lights** and **Switches** groups.
 
 ---
 

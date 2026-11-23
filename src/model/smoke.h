@@ -1,6 +1,8 @@
 #pragma once
 #include <Arduino.h>
 
+#include "util/i18n.h"
+
 // Detektor dima (Tuya kategorija "ywbj"). Stanje se čita pri istom osvežavanju kao ostali uređaji
 // (10 s dok se panel koristi, 5 min dok miruje), pa panel može da kasni; detektor sam pišti.
 struct SmokeInfo {
@@ -19,10 +21,11 @@ struct SmokeInfo {
 
 // Kratak opis stanja za listu i telefon
 inline String smokeStateText(const SmokeInfo& s) {
-  if (!s.online) return "Nedostupan";
-  if (s.alarm) return "DIM!";
-  if (s.fault) return "Samotest nije prošao";
-  if (s.tamper) return "Skinut sa nosača";
-  if (s.batteryLow) return s.battery >= 0 ? "Slaba baterija " + String(s.battery) + "%" : String("Slaba baterija");
-  return "U redu";
+  if (!s.online) return TR("Nedostupan", "Offline");
+  if (s.alarm) return TR("DIM!", "SMOKE!");
+  if (s.fault) return TR("Samotest nije prošao", "Self-test failed");
+  if (s.tamper) return TR("Skinut sa nosača", "Removed from mount");
+  if (s.batteryLow)
+    return s.battery >= 0 ? String(TR("Slaba baterija ", "Low battery ")) + String(s.battery) + "%" : String(TR("Slaba baterija", "Low battery"));
+  return TR("U redu", "OK");
 }

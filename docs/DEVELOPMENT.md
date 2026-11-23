@@ -3,8 +3,8 @@
 This document is for working on the firmware itself. It covers how the code is organized, what was
 learned about the display, the serial debug console and the helper tools.
 
-> **Language note**: code comments, log messages and UI strings are in **Serbian** (Latin script).
-> Identifiers are in English.
+> **Language note**: code comments and log messages are in **Serbian** (Latin script); identifiers are
+> in English. The user interface is bilingual (English / Serbian), see [Translations](#translations).
 
 - [Architecture](#architecture)
 - [Source map](#source-map)
@@ -12,6 +12,7 @@ learned about the display, the serial debug console and the helper tools.
 - [Serial debug console](#serial-debug-console)
 - [Tools](#tools)
 - [Web app](#web-app)
+- [Translations](#translations)
 - [Storage](#storage)
 - [Diagnostics](#diagnostics)
 - [Testing tips](#testing-tips)
@@ -87,10 +88,12 @@ learned about the display, the serial debug console and the helper tools.
 | `src/ui/thermo_popup.*`, `cover_popup.*` | Pop-ups over any screen |
 | `src/ui/alarm_screen.*`, `pin_prompt.*` | Alarm hub screen and PIN keypad |
 | `src/ui/smoke_alert.*` | Full-screen smoke warning on `lv_layer_top` |
-| `src/ui/settings_screen.*` | **Podešavanja**: Wi-Fi, Tuya, eWeLink, Uređaji, Alarm, Web (QR) |
+| `src/ui/settings_screen.*` | **Settings**: Wi-Fi, Tuya, eWeLink, Devices, Alarm, Web (QR, language) |
 | `src/ui/theme.*`, `src/ui/fonts/` | Colours and TinyTTF Montserrat fonts (Serbian Latin + Cyrillic), generated with `tools/bin2c.py` |
 | `src/ui/lv_mem_psram.c` | LVGL heap in PSRAM |
 | `src/util/crypto.*` | SHA-256 / HMAC-SHA256 (hex, base64), URL encoding, random strings (mbedTLS) |
+| `src/util/i18n.*` | Interface language and the `TR("srpski", "English")` macro |
+| `src/util/restart.*` | Delayed restart (used to apply a language change) |
 | `src/util/selftest.*` | Boot-time check of the signing code against known test vectors (`[selftest] SVE OK`) |
 | `src/debug/console.*` | Serial debug console (below) |
 
@@ -162,12 +165,12 @@ returns to the home screen and would close a pop-up before the screenshot is tak
 | `show` | **Showcase** for screenshots: replaces all devices and scenes with demo ones (lights, switches, sockets on both clouds, blinds, temperatures, thermostat, door, motion, smoke, alarm hub) and places markers on the built-in house image. Only one page is shown, with the built-in image even if a photo was uploaded. **Cloud polling stops** (results of a request already in flight are dropped), so no real device data appears on screen. Saved layout, scenes and photos are not touched; a restart brings everything back. |
 | `show d` | Same as `show`, but the demo smoke detector reports smoke (red warning) |
 | `d` | Demo switches (Tuya + eWeLink), demo mode on |
-
-All demo commands switch on demo mode, which stops cloud polling until the next restart.
 | `dc` | Demo blind |
 | `ds` / `ds0` | Demo smoke detector with smoke / OK |
 | `dt` | Demo thermostat, door and motion sensor, placed on the current page |
 | `dv` / `dm` | Toggle the demo door / motion state |
+
+All demo commands switch on demo mode, which stops cloud polling until the next restart.
 
 ### UI navigation
 
@@ -178,8 +181,10 @@ All demo commands switch on demo mode, which stops cloud polling until the next 
 | `gs N` | Scroll the device list (used for screenshots of lower sections) |
 | `e` | Home screen edit mode |
 | `al KEY` | Open the alarm screen for alarm hub KEY (e.g. `al demo-a1` after `show`) |
+| `lang en` / `lang sr` | Save the interface language and restart (same as the selector in settings) |
+| `rst` | Restart the panel the same way a language change does (web PIN is kept) |
 | `m` | Close settings / back to the main screen |
-| `p N` | Open **Podešavanja** on tab N without the PIN (0 Wi-Fi, 1 Tuya, 2 eWeLink, 3 Uređaji, 4 Alarm, 5 Web) |
+| `p N` | Open **Settings** on tab N without the PIN (0 Wi-Fi, 1 Tuya, 2 eWeLink, 3 Devices, 4 Alarm, 5 Web) |
 | `th KEY` | Open the thermostat pop-up for a device key |
 | `co KEY` | Open the blind pop-up for a device key |
 | `t X Y` | Injected tap at X, Y |
@@ -248,18 +253,38 @@ which includes `pyserial`.
 
   Each item also has a source `c`: `t` Tuya, `e` eWeLink, `p` panel.
 
+## Translations
+
+Every user-visible string exists in both languages, written in place:
+
+```cpp
+#include "util/i18n.h"
+lv_label_set_text(title, TR("Podešavanja", "Settings"));
+```
+
+- `TR(sr, en)` returns one of two string literals, so the pointer is always valid. Call it at runtime
+  (after `settings::begin()`), never in a static initializer or a global array.
+- The language is fixed for one boot. Screens are built once, so changing the language saves it to
+  NVS and restarts the panel (`restart::soon()`); the web PIN is kept in RTC memory so the phone
+  session survives.
+- Decimal numbers use `i18n::decimalSep()` (`21,5°` in Serbian, `21.5°` in English).
+- The web app uses the same idea in JavaScript (`t(sr, en)`); the language comes from the panel.
+- The default for a fresh panel is `UI_DEFAULT_LANGUAGE` in `include/config.h`.
+- Log messages and code comments are not translated.
+
 ## Storage
 
 | Where | What |
 |---|---|
-| NVS namespace `settings` | Wi-Fi, Tuya/eWeLink keys, layout positions, pages, disabled devices, screen timeouts, alarm PIN (salt + SHA-256) |
+| NVS namespace `settings` | Wi-Fi, Tuya/eWeLink keys, layout positions, pages, disabled devices, screen timeouts, alarm PIN (salt + SHA-256), interface language (`lang`) |
+| RTC memory (survives a software restart only) | The current web PIN, so the phone stays logged in when the panel restarts to change language |
 | NVS namespace `ewelink` | eWeLink access/refresh token, region, expiry |
 | LittleFS (`spiffs` partition, ~10.9 MB) | `/bg.rgb565`, `/bg1.rgb565` … (768,000 B each), `/scenes.json` |
 | Firmware | `assets/background.rgb565` (built-in first-page photo), Montserrat TTF |
 
 The initial layout for a fresh panel comes from `HOME_POSITIONS` (an empty example in `include/config.h`;
 put your own device keys in the git-ignored `include/home_positions.h`, which `config.h` includes if it exists), which is also
-used by **Podrazumevani raspored** (default layout). Optional name overrides are in `NAME_OVERRIDES`.
+used by **Default layout** in the web app. Optional name overrides are in `NAME_OVERRIDES`.
 
 ## Diagnostics
 

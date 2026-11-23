@@ -1,5 +1,7 @@
 #pragma once
 #include <Arduino.h>
+
+#include "util/i18n.h"
 #include <math.h>
 
 // Termostat (Tuya "wk"), termostatska glava radijatora ("wkf") i drugi uređaji sa DP "temp_set"
@@ -37,37 +39,37 @@ inline float thermoClamp(const ThermostatInfo& t, float v) {
   return v;
 }
 
-// "21,5°" (decimalni zarez; celi stepeni bez decimale)
+// "21,5°" / "21.5°" (decimalni zarez na srpskom; celi stepeni bez decimale)
 inline String thermoDegrees(float v) {
   char buf[16];
   if (fabsf(v - roundf(v)) < 0.05f) snprintf(buf, sizeof(buf), "%d°", (int)roundf(v));
   else snprintf(buf, sizeof(buf), "%.1f°", v);
-  if (char* dot = strchr(buf, '.')) *dot = ',';
+  if (char* dot = strchr(buf, '.')) *dot = i18n::decimalSep();
   return buf;
 }
 
 // Režim za prikaz; nepoznat se prikazuje kako ga uređaj javlja
 inline String thermoModeText(const String& m) {
   if (m.isEmpty()) return "";
-  if (m == "auto" || m == "program" || m == "schedule" || m == "smart") return "po rasporedu";
-  if (m == "manual" || m == "hold" || m == "temp_manual") return "ručno";
-  if (m == "eco") return "eko";
-  if (m == "holiday" || m == "away") return "odmor";
-  if (m == "comfort") return "komfor";
-  if (m == "frost" || m == "antifreeze") return "zaštita od mraza";
-  if (m == "hot" || m == "heat") return "grejanje";
-  if (m == "cold" || m == "cool") return "hlađenje";
-  if (m == "wind" || m == "fan") return "ventilator";
-  if (m == "dry" || m == "dehumidification") return "sušenje";
+  if (m == "auto" || m == "program" || m == "schedule" || m == "smart") return TR("po rasporedu", "schedule");
+  if (m == "manual" || m == "hold" || m == "temp_manual") return TR("ručno", "manual");
+  if (m == "eco") return TR("eko", "eco");
+  if (m == "holiday" || m == "away") return TR("odmor", "holiday");
+  if (m == "comfort") return TR("komfor", "comfort");
+  if (m == "frost" || m == "antifreeze") return TR("zaštita od mraza", "frost protection");
+  if (m == "hot" || m == "heat") return TR("grejanje", "heating");
+  if (m == "cold" || m == "cool") return TR("hlađenje", "cooling");
+  if (m == "wind" || m == "fan") return TR("ventilator", "fan");
+  if (m == "dry" || m == "dehumidification") return TR("sušenje", "dry");
   return m;
 }
 
 // Kratak opis stanja za listu i telefon: "21,5° → 22°", "Isključen", "Nedostupan"
 inline String thermoStateText(const ThermostatInfo& t) {
-  if (!t.online) return "Nedostupan";
+  if (!t.online) return TR("Nedostupan", "Offline");
   String s = t.hasCurrent ? thermoDegrees(t.current) : String("--");
-  if (!t.on) return s + " · isključen";
+  if (!t.on) return s + TR(" · isključen", " · off");
   if (t.hasTarget) s += " → " + thermoDegrees(t.target);
-  if (t.heating == 1) s += " · greje";
+  if (t.heating == 1) s += TR(" · greje", " · heating");
   return s;
 }

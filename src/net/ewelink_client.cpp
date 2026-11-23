@@ -3,6 +3,7 @@
 #include <Preferences.h>
 
 #include "util/crypto.h"
+#include "util/i18n.h"
 
 static constexpr uint64_t DAY_MS = 24ULL * 3600 * 1000;
 static constexpr const char* NVS_NS = "ewelink";
@@ -90,12 +91,12 @@ bool EWeLinkClient::exchangeCode(const String& appId, const String& appSecret, c
   HttpResult r = http.request("POST", hostFor(region) + "/v2/user/oauth/token", body, h);
   http.reset();
   if (!r.ok()) {
-    err = r.status < 0 ? "nema veze sa eWeLink serverom" : "HTTP " + String(r.status);
+    err = r.status < 0 ? String(TR("nema veze sa eWeLink serverom", "no connection to the eWeLink server")) : "HTTP " + String(r.status);
     return false;
   }
   JsonDocument doc;
   if (deserializeJson(doc, r.body)) {
-    err = "neispravan odgovor servera";
+    err = TR("neispravan odgovor servera", "invalid server response");
     return false;
   }
   const int ecode = doc["error"] | -1;
@@ -107,7 +108,7 @@ bool EWeLinkClient::exchangeCode(const String& appId, const String& appSecret, c
   const String rt = doc["data"]["refreshToken"] | "";
   const uint64_t atExp = doc["data"]["atExpiredTime"] | 0ULL;
   if (!at.length() || !rt.length()) {
-    err = "server nije vratio tokene";
+    err = TR("server nije vratio tokene", "server returned no tokens");
     return false;
   }
   storeTokens(at, rt, region.length() ? region : String("eu"), atExp);
@@ -127,12 +128,12 @@ bool EWeLinkClient::refresh(String& err) {
                   {"Content-Type", "application/json"}};
   HttpResult r = http_.request("POST", host() + "/v2/user/refresh", body, h);
   if (!r.ok()) {
-    err = r.status < 0 ? "eWeLink: nema veze sa serverom" : "eWeLink: HTTP " + String(r.status);
+    err = r.status < 0 ? String(TR("eWeLink: nema veze sa serverom", "eWeLink: no connection to the server")) : "eWeLink: HTTP " + String(r.status);
     return false;
   }
   JsonDocument doc;
   if (deserializeJson(doc, r.body)) {
-    err = "eWeLink: neispravan odgovor (refresh)";
+    err = TR("eWeLink: neispravan odgovor (refresh)", "eWeLink: invalid response (refresh)");
     return false;
   }
   const int code = doc["error"] | -1;
@@ -144,7 +145,7 @@ bool EWeLinkClient::refresh(String& err) {
   const String at = doc["data"]["at"] | "";
   const String rt = doc["data"]["rt"] | "";
   if (!at.length() || !rt.length()) {
-    err = "eWeLink: refresh bez tokena";
+    err = TR("eWeLink: refresh bez tokena", "eWeLink: refresh returned no token");
     return false;
   }
   at_ = at;
@@ -157,7 +158,8 @@ bool EWeLinkClient::refresh(String& err) {
 
 bool EWeLinkClient::ensureFresh(String& err) {
   if (sessionDead_) {
-    err = "eWeLink: prijava istekla - ponovo poveži nalog (Podešavanja)";
+    err = TR("eWeLink: prijava istekla - ponovo poveži nalog (Podešavanja)",
+             "eWeLink: login expired - link the account again (Settings)");
     return false;
   }
   const uint64_t now = epochMillis();
@@ -171,13 +173,13 @@ bool EWeLinkClient::ensureFresh(String& err) {
 String EWeLinkClient::describeError(int code, const String& msg) {
   String hint;
   switch (code) {
-    case 401: hint = "sesija nevažeća - ponovo poveži nalog (Podešavanja)"; break;
-    case 402: hint = "token istekao"; break;
+    case 401: hint = TR("sesija nevažeća - ponovo poveži nalog (Podešavanja)", "session invalid - link the account again (Settings)"); break;
+    case 402: hint = TR("token istekao", "token expired"); break;
     case 403:
-    case 412: hint = "mesečni limit API poziva je potrošen"; break;
-    case 406: hint = "odbijeno (potpis / dozvola)"; break;
-    case 407: hint = "APPID nema dozvolu za ovaj API"; break;
-    case 4002: hint = "uređaj nije prihvatio komandu (offline?)"; break;
+    case 412: hint = TR("mesečni limit API poziva je potrošen", "monthly API call limit reached"); break;
+    case 406: hint = TR("odbijeno (potpis / dozvola)", "rejected (signature / permission)"); break;
+    case 407: hint = TR("APPID nema dozvolu za ovaj API", "APPID has no permission for this API"); break;
+    case 4002: hint = TR("uređaj nije prihvatio komandu (offline?)", "device did not accept the command (offline?)"); break;
     default: break;
   }
   return "eWeLink " + String(code) + ": " + (hint.length() ? hint : msg);
@@ -198,7 +200,7 @@ bool EWeLinkClient::call(const char* method, const String& pathAndQuery, const S
     return false;
   }
   if (!r.ok()) {
-    err = r.status < 0 ? "eWeLink: nema veze sa serverom (" + HTTPClient::errorToString(r.status) + ")"
+    err = r.status < 0 ? TR("eWeLink: nema veze sa serverom (", "eWeLink: no connection to the server (") + HTTPClient::errorToString(r.status) + ")"
                        : "eWeLink: HTTP " + String(r.status);
     return false;
   }
@@ -206,7 +208,7 @@ bool EWeLinkClient::call(const char* method, const String& pathAndQuery, const S
   DeserializationError de = filter ? deserializeJson(doc, r.body, DeserializationOption::Filter(*filter))
                                    : deserializeJson(doc, r.body);
   if (de) {
-    err = "eWeLink: neispravan JSON (" + String(de.c_str()) + ")";
+    err = TR("eWeLink: neispravan JSON (", "eWeLink: invalid JSON (") + String(de.c_str()) + ")";
     return false;
   }
   const int code = doc["error"] | -1;

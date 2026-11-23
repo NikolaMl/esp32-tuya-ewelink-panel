@@ -1,18 +1,20 @@
 #pragma once
 #include <Arduino.h>
 
+#include "util/i18n.h"
+
 // Grupe uređaja za prikaz (lista na panelu, telefon). Tuya kategorija / eWeLink UIID -> grupa.
 // Redosled ovde je i redosled sekcija u listi.
 enum class DeviceGroup : uint8_t { Lights, Switches, Sockets, Climate, Security, Other };
 
 inline const char* groupName(DeviceGroup g) {
   switch (g) {
-    case DeviceGroup::Lights: return "Svetla";
-    case DeviceGroup::Switches: return "Prekidači";
-    case DeviceGroup::Sockets: return "Utičnice";
-    case DeviceGroup::Climate: return "Klima";
-    case DeviceGroup::Security: return "Sigurnost";
-    default: return "Ostalo";
+    case DeviceGroup::Lights: return TR("Svetla", "Lights");
+    case DeviceGroup::Switches: return TR("Prekidači", "Switches");
+    case DeviceGroup::Sockets: return TR("Utičnice", "Sockets");
+    case DeviceGroup::Climate: return TR("Klima", "Climate");
+    case DeviceGroup::Security: return TR("Sigurnost", "Security");
+    default: return TR("Ostalo", "Other");
   }
 }
 

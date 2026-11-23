@@ -1,5 +1,7 @@
 #pragma once
 #include <Arduino.h>
+
+#include "util/i18n.h"
 #include <time.h>
 
 // Senzor vrata/prozora (Tuya "mcs": doorcontact_state) i senzor pokreta/prisustva ("pir": pir,
@@ -26,13 +28,13 @@ struct BinarySensorState : BinarySensorInfo {
   time_t lastActive = 0;  // poslednji put viđeno "otvoreno" / "pokret"
 };
 
-inline const char* binaryKindName(BinaryKind k) { return k == BinaryKind::Door ? "Senzor vrata" : "Senzor pokreta"; }
+inline const char* binaryKindName(BinaryKind k) { return k == BinaryKind::Door ? TR("Senzor vrata", "Door sensor") : TR("Senzor pokreta", "Motion sensor"); }
 
 // "Otvoreno" / "Zatvoreno" / "Pokret" / "Mirno" / "Nedostupan"
 inline String binaryStateText(const BinarySensorInfo& s) {
-  if (!s.online) return "Nedostupan";
-  if (s.kind == BinaryKind::Door) return s.active ? "Otvoreno" : "Zatvoreno";
-  return s.active ? "Pokret" : "Mirno";
+  if (!s.online) return TR("Nedostupan", "Offline");
+  if (s.kind == BinaryKind::Door) return s.active ? TR("Otvoreno", "Open") : TR("Zatvoreno", "Closed");
+  return s.active ? TR("Pokret", "Motion") : TR("Mirno", "Clear");
 }
 
 // Dodatak uz stanje: "od 14:32" (vrata), "poslednji u 14:32" (pokret), upozorenja
@@ -45,9 +47,9 @@ inline String binaryNote(const BinarySensorState& s) {
     snprintf(b, sizeof(b), "%02d:%02d", v.tm_hour, v.tm_min);
     return String(b);
   };
-  if (s.online && s.kind == BinaryKind::Door && s.changedAt) n = "od " + hm(s.changedAt);
-  if (s.online && s.kind == BinaryKind::Motion && s.lastActive) n = (s.active ? "u " : "poslednji u ") + hm(s.lastActive);
-  if (s.online && s.tamper) n += String(n.length() ? " · " : "") + "skinut";
-  if (s.online && s.batteryLow) n += String(n.length() ? " · " : "") + "slaba baterija";
+  if (s.online && s.kind == BinaryKind::Door && s.changedAt) n = TR("od ", "since ") + hm(s.changedAt);
+  if (s.online && s.kind == BinaryKind::Motion && s.lastActive) n = (s.active ? TR("u ", "at ") : TR("poslednji u ", "last at ")) + hm(s.lastActive);
+  if (s.online && s.tamper) n += String(n.length() ? " · " : "") + TR("skinut", "tampered");
+  if (s.online && s.batteryLow) n += String(n.length() ? " · " : "") + TR("slaba baterija", "low battery");
   return n;
 }

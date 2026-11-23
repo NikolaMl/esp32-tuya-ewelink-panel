@@ -20,6 +20,7 @@
 #include "ui/smoke_alert.h"
 #include "ui/settings_screen.h"
 #include "ui/ui.h"
+#include "util/restart.h"
 #include "util/selftest.h"
 
 // LVGL + TinyTTF rasterizacija traže više steka od podrazumevanih 8 KB
@@ -109,7 +110,8 @@ static const char* resetReasonText(esp_reset_reason_t r) {
 // xtensa-esp32s3-elf-addr2line -pfiaC -e .pio/build/panel/firmware.elf <adrese>)
 static void logBootDiagnostics() {
   const esp_reset_reason_t r = esp_reset_reason();
-  Serial.printf("[main] razlog pokretanja: %s (%d)\n", resetReasonText(r), (int)r);
+  Serial.printf("[main] razlog pokretanja: %s (%d)%s\n", resetReasonText(r), (int)r,
+                restart::wasRequested() ? ", restart je zatražio panel" : "");
   if (esp_core_dump_image_check() != ESP_OK) return;
   esp_core_dump_summary_t* s = static_cast<esp_core_dump_summary_t*>(malloc(sizeof(esp_core_dump_summary_t)));
   if (!s) return;
@@ -167,5 +169,6 @@ void loop() {
   debug::poll();
   ui::update();
   updateScreenPower();
+  restart::poll();
   delay(wait < 5 ? wait : 5);
 }

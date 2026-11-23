@@ -8,6 +8,7 @@
 #include "net/cloud_task.h"
 #include "ui/settings_screen.h"
 #include "ui/theme.h"
+#include "util/i18n.h"
 
 namespace alarm_ui {
 
@@ -58,7 +59,7 @@ Look lookFor(const AlarmState& a) {
   Look l;
   const lv_color_t white = lv_color_hex(0xFFFFFF);
   if (!a.online) {
-    l = {C_CARD_OFFLINE, C_MUTED, C_MUTED, "Nedostupan", "Centrala nije na mreži"};
+    l = {C_CARD_OFFLINE, C_MUTED, C_MUTED, TR("Nedostupan", "Offline"), TR("Centrala nije na mreži", "The hub is offline")};
     return l;
   }
   if (a.alarming) {
@@ -66,16 +67,21 @@ Look lookFor(const AlarmState& a) {
     return l;
   }
   switch (a.mode) {
-    case AlarmMode::Disarmed: l = {C_CARD, C_TEXT, C_OK, "Isključen", ""}; break;
-    case AlarmMode::Away: l = {lv_color_hex(0x5C1A1F), white, lv_color_hex(0xFF8A80), "Uključen – odsutan", ""}; break;
-    case AlarmMode::Home: l = {lv_color_hex(0x173A5E), white, lv_color_hex(0x8EC5FF), "Uključen – kod kuće", ""}; break;
-    default: l = {C_CARD, C_TEXT, C_MUTED, "Nepoznato stanje", ""}; break;
+    case AlarmMode::Disarmed: l = {C_CARD, C_TEXT, C_OK, TR("Isključen", "Disarmed"), ""}; break;
+    case AlarmMode::Away:
+      l = {lv_color_hex(0x5C1A1F), white, lv_color_hex(0xFF8A80), TR("Uključen – odsutan", "Armed – away"), ""};
+      break;
+    case AlarmMode::Home:
+      l = {lv_color_hex(0x173A5E), white, lv_color_hex(0x8EC5FF), TR("Uključen – kod kuće", "Armed – home"), ""};
+      break;
+    default: l = {C_CARD, C_TEXT, C_MUTED, TR("Nepoznato stanje", "Unknown state"), ""}; break;
   }
   const uint32_t left = exitSecondsLeft(a);
-  if (a.pending) l.detail = "Šaljem komandu…";
-  else if (left) l.detail = "Izlazno kašnjenje: " + String(left) + " s";
+  if (a.pending) l.detail = TR("Šaljem komandu…", "Sending command…");
+  else if (left) l.detail = TR("Izlazno kašnjenje: ", "Exit delay: ") + String(left) + " s";
   else if (a.mode == AlarmMode::Disarmed)
-    l.detail = "Izlazno kašnjenje " + String(a.exitDelay) + " s · ulazno " + String(a.entryDelay) + " s";
+    l.detail = TR("Izlazno kašnjenje ", "Exit delay ") + String(a.exitDelay) + TR(" s · ulazno ", " s · entry ") +
+               String(a.entryDelay) + " s";
   return l;
 }
 
@@ -85,7 +91,7 @@ static bool locked() { return settings::alarmPinLockedMs() > 0; }
 
 static void showPin() {
   if (s_pin.isEmpty()) {
-    setText(s_pinDots, "Unesi PIN");
+    setText(s_pinDots, TR("Unesi PIN", "Enter PIN"));
     setTextColor(s_pinDots, C_MUTED);
     return;
   }
@@ -98,21 +104,21 @@ static void showPin() {
 static void submitPin() {
   if (locked()) return;
   if (s_pin.length() < PIN_MIN) {
-    setText(s_pinMsg, "PIN ima najmanje 4 cifre");
+    setText(s_pinMsg, TR("PIN ima najmanje 4 cifre", "The PIN has at least 4 digits"));
     return;
   }
   const settings::PinResult r = settings::verifyAlarmPin(s_pin);
   s_pin = "";
   showPin();
   if (r != settings::PinResult::Ok) {
-    if (r == settings::PinResult::Wrong) setText(s_pinMsg, "Pogrešan PIN");
+    if (r == settings::PinResult::Wrong) setText(s_pinMsg, TR("Pogrešan PIN", "Wrong PIN"));
     return;
   }
   if (cloud::requestAlarm(s_id, AlarmMode::Disarmed)) {
-    setText(s_pinMsg, "Isključujem…");
+    setText(s_pinMsg, TR("Isključujem…", "Disarming…"));
     if (s_acked.indexOf(s_id + ",") < 0) s_acked += s_id + ",";
   } else {
-    setText(s_pinMsg, "Centrala je zauzeta ili nedostupna");
+    setText(s_pinMsg, TR("Centrala je zauzeta ili nedostupna", "The hub is busy or offline"));
   }
 }
 
@@ -138,7 +144,7 @@ static void onPad(lv_event_t* e) {
 
 static void arm(AlarmMode mode) {
   if (cloud::requestAlarm(s_id, mode)) setText(s_armMsg, "");
-  else setText(s_armMsg, "Centrala je zauzeta ili nedostupna");
+  else setText(s_armMsg, TR("Centrala je zauzeta ili nedostupna", "The hub is busy or offline"));
 }
 
 // ---------------------------------------------------------------- izgradnja
@@ -195,7 +201,7 @@ void build(lv_obj_t* mainScreen) {
   lv_obj_set_style_pad_column(back, 6, 0);
   lv_obj_add_event_cb(back, [](lv_event_t*) { close(); }, LV_EVENT_CLICKED, nullptr);
   label(back, LV_SYMBOL_LEFT, &lv_font_montserrat_20, C_TEXT);
-  label(back, "Nazad", F_BODY, C_TEXT);
+  label(back, TR("Nazad", "Back"), F_BODY, C_TEXT);
   s_title = label(s_scr, "", F_NAME, C_TEXT);
   lv_obj_align(s_title, LV_ALIGN_TOP_MID, 0, 16);
 
@@ -222,8 +228,8 @@ void build(lv_obj_t* mainScreen) {
 
   // Desno: dugmad za uključivanje
   s_armBox = column(s_scr, 410, 370);
-  bigButton(s_armBox, "Uključi – odsutan", lv_color_hex(0x7A2228), [](lv_event_t*) { arm(AlarmMode::Away); });
-  bigButton(s_armBox, "Uključi – kod kuće", lv_color_hex(0x1F4A78), [](lv_event_t*) { arm(AlarmMode::Home); });
+  bigButton(s_armBox, TR("Uključi – odsutan", "Arm – away"), lv_color_hex(0x7A2228), [](lv_event_t*) { arm(AlarmMode::Away); });
+  bigButton(s_armBox, TR("Uključi – kod kuće", "Arm – home"), lv_color_hex(0x1F4A78), [](lv_event_t*) { arm(AlarmMode::Home); });
   s_armMsg = label(s_armBox, "", F_SMALL, C_ERR);
 
   // Desno: PIN tastatura za isključivanje
@@ -256,7 +262,8 @@ void build(lv_obj_t* mainScreen) {
 
   // Desno: PIN još nije podešen
   s_noPinBox = column(s_scr, 410, 370);
-  lv_obj_t* np = label(s_noPinBox, "Za isključivanje alarma sa panela prvo podesi PIN.", F_BODY, C_TEXT);
+  lv_obj_t* np = label(s_noPinBox, TR("Za isključivanje alarma sa panela prvo podesi PIN.", "Set a PIN first to disarm from the panel."),
+                       F_BODY, C_TEXT);
   lv_obj_set_width(np, 340);
   lv_label_set_long_mode(np, LV_LABEL_LONG_WRAP);
   lv_obj_set_style_text_align(np, LV_TEXT_ALIGN_CENTER, 0);
@@ -267,7 +274,7 @@ void build(lv_obj_t* mainScreen) {
   lv_obj_set_style_bg_color(pb, C_ON, 0);
   lv_obj_set_style_pad_hor(pb, 26, 0);
   lv_obj_add_event_cb(pb, [](lv_event_t*) { settings_ui::open(settings_ui::TAB_ALARM); }, LV_EVENT_CLICKED, nullptr);
-  lv_obj_center(label(pb, "Podesi PIN", F_BODY, C_ON_TEXT));
+  lv_obj_center(label(pb, TR("Podesi PIN", "Set PIN"), F_BODY, C_ON_TEXT));
 }
 
 // ---------------------------------------------------------------- osvežavanje
@@ -301,7 +308,7 @@ static void refresh(const AlarmState& a) {
 
   if (locked()) {
     const uint32_t s = (settings::alarmPinLockedMs() + 999) / 1000;
-    setText(s_pinMsg, "Previše pogrešnih pokušaja. Sačekaj " + String(s) + " s.");
+    setText(s_pinMsg, TR("Previše pogrešnih pokušaja. Sačekaj ", "Too many wrong attempts. Wait ") + String(s) + " s.");
     s_showedLock = true;
   } else if (s_showedLock) {
     s_showedLock = false;

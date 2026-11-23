@@ -16,6 +16,7 @@
 #include "ui/thermo_popup.h"
 #include "ui/theme.h"
 #include "ui/ui.h"
+#include "util/i18n.h"
 
 namespace home_ui {
 
@@ -234,11 +235,11 @@ static void applySensor(Item& it, const SensorInfo& s) {
   char buf[16] = "--";
   if (s.hasValue) {
     snprintf(buf, sizeof(buf), "%.1f°", s.value);
-    if (char* dot = strchr(buf, '.')) *dot = ',';
+    if (char* dot = strchr(buf, '.')) *dot = i18n::decimalSep();
   }
   setText(it.value, buf);
   const String n = shortName(s.name);
-  setText(it.name, s.online ? n.c_str() : (n + " · nedostupan").c_str());
+  setText(it.name, s.online ? n.c_str() : (n + TR(" · nedostupan", " · offline")).c_str());
   setTextColor(it.value, s.online ? WHITE : lv_color_hex(0x8A939E));
 }
 
@@ -354,7 +355,7 @@ static Item makeSmoke(const SmokeInfo& s) {
   lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   lv_obj_set_style_pad_column(row, 8, 0);
   it.value = label(row, &lv_font_montserrat_20, WHITE, LV_SYMBOL_OK);  // ikonica stanja
-  lv_obj_t* text = label(row, F_BODY, WHITE, "Dim");
+  lv_obj_t* text = label(row, F_BODY, WHITE, TR("Dim", "Smoke"));
   lv_obj_set_user_data(it.root, text);
   it.name = label(it.root, F_SMALL, SOFT);  // vidi se samo pri raspoređivanju
   lv_obj_set_style_max_width(it.name, 190, 0);
@@ -366,7 +367,7 @@ static Item makeSmoke(const SmokeInfo& s) {
 }
 
 static void applySmoke(Item& it, const SmokeInfo& s) {
-  setText(it.name, s.online ? s.name.c_str() : (s.name + " · nedostupan").c_str());
+  setText(it.name, s.online ? s.name.c_str() : (s.name + TR(" · nedostupan", " · offline")).c_str());
   const bool warn = s.online && (s.fault || s.tamper || s.batteryLow);
   const int8_t shown = (s.online ? 1 : 0) | (s.alarm ? 2 : 0) | (warn ? 4 : 0);
   if (shown == it.shown) return;
@@ -377,7 +378,7 @@ static void applySmoke(Item& it, const SmokeInfo& s) {
   lv_obj_set_style_bg_opa(it.root, alarm ? LV_OPA_COVER : 140, 0);
   setText(it.value, alarm || warn || !s.online ? LV_SYMBOL_WARNING : LV_SYMBOL_OK);
   setTextColor(it.value, alarm ? WHITE : !s.online ? lv_color_hex(0x8A939E) : warn ? C_WARN : C_OK);
-  setText(text, alarm ? "DIM!" : "Dim");
+  setText(text, alarm ? TR("DIM!", "SMOKE!") : TR("Dim", "Smoke"));
   setTextColor(text, s.online ? WHITE : lv_color_hex(0x8A939E));
 }
 
@@ -419,19 +420,19 @@ static Item makeThermo(const ThermostatState& t) {
 }
 
 static void applyThermo(Item& it, const ThermostatState& t) {
-  setText(it.name, t.online ? t.name.c_str() : (t.name + " · nedostupan").c_str());
+  setText(it.name, t.online ? t.name.c_str() : (t.name + TR(" · nedostupan", " · offline")).c_str());
   char cur[16] = "--";
   if (t.hasCurrent) {
     snprintf(cur, sizeof(cur), "%.1f°", t.current);
-    if (char* dot = strchr(cur, '.')) *dot = ',';
+    if (char* dot = strchr(cur, '.')) *dot = i18n::decimalSep();
   }
   setText(it.value, cur);
   setTextColor(it.value, t.online ? WHITE : lv_color_hex(0x8A939E));
   lv_obj_t* target = static_cast<lv_obj_t*>(lv_obj_get_user_data(it.root));
   String line;
-  if (!t.online) line = "nedostupan";
-  else if (!t.on) line = "isključen";
-  else if (t.hasTarget) line = "→ " + thermoDegrees(t.target) + (t.heating == 1 ? " · greje" : "");
+  if (!t.online) line = TR("nedostupan", "offline");
+  else if (!t.on) line = TR("isključen", "off");
+  else if (t.hasTarget) line = "→ " + thermoDegrees(t.target) + (t.heating == 1 ? TR(" · greje", " · heating") : "");
   setText(target, line.c_str());
   setTextColor(target, t.online && t.on && t.heating == 1 ? C_ON : SOFT);
 }
@@ -472,7 +473,7 @@ static Item makeBinary(const BinarySensorState& b) {
 }
 
 static void applyBinary(Item& it, const BinarySensorState& b) {
-  setText(it.name, b.online ? b.name.c_str() : (b.name + " · nedostupan").c_str());
+  setText(it.name, b.online ? b.name.c_str() : (b.name + TR(" · nedostupan", " · offline")).c_str());
   const int8_t shown = (b.online ? 1 : 0) | (b.active ? 2 : 0);
   if (shown == it.shown) return;
   it.shown = shown;
@@ -586,30 +587,30 @@ static void updateLock(const std::vector<AlarmState>& alarms) {
   String text;
   if (!a->online) {
     c = lv_color_hex(0x8A939E);
-    text = "Nedostupan";
+    text = TR("Nedostupan", "Offline");
   } else if (a->alarming) {
     c = WHITE;
     bg = lv_color_hex(0xC62828);
     opa = 235;
     text = a->mode == AlarmMode::Sos ? "SOS" : "ALARM";
   } else if (a->pending) {
-    text = "Šaljem…";
+    text = TR("Šaljem…", "Sending…");
     open = a->mode == AlarmMode::Disarmed;
   } else if (left) {
     c = C_ON;
-    text = "Izlaz " + String(left) + " s";
+    text = TR("Izlaz ", "Exit ") + String(left) + " s";
   } else if (a->mode == AlarmMode::Disarmed) {
     c = C_OK;
     open = true;
-    text = "Isključen";
+    text = TR("Isključen", "Disarmed");
   } else if (a->mode == AlarmMode::Home) {
     c = lv_color_hex(0x8EC5FF);
-    text = "Kod kuće";
+    text = TR("Kod kuće", "Home");
   } else if (a->mode == AlarmMode::Away) {
     c = lv_color_hex(0xFF6B6B);
-    text = "Uključen";
+    text = TR("Uključen", "Away");
   } else {
-    text = "Nepoznato";
+    text = TR("Nepoznato", "Unknown");
   }
   lockShape(open, c);
   setTextColor(s_lockText, c);
@@ -625,20 +626,26 @@ static void updateClock() {
   if (now < 1700000000) return;
   struct tm t;
   localtime_r(&now, &t);
-  static const char* const DAYS[] = {"Nedelja", "Ponedeljak", "Utorak", "Sreda", "Četvrtak", "Petak", "Subota"};
-  static const char* const MONTHS[] = {"januar", "februar", "mart",     "april",   "maj",      "jun",
-                                       "jul",    "avgust",  "septembar", "oktobar", "novembar", "decembar"};
+  static const char* const DAYS_SR[] = {"Nedelja", "Ponedeljak", "Utorak", "Sreda", "Četvrtak", "Petak", "Subota"};
+  static const char* const MONTHS_SR[] = {"januar", "februar", "mart",     "april",   "maj",      "jun",
+                                          "jul",    "avgust",  "septembar", "oktobar", "novembar", "decembar"};
+  static const char* const DAYS_EN[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+  static const char* const MONTHS_EN[] = {"January", "February", "March",     "April",   "May",      "June",
+                                          "July",    "August",   "September", "October", "November", "December"};
   char buf[48];
   snprintf(buf, sizeof(buf), "%02d:%02d", t.tm_hour, t.tm_min);
   setText(s_clock, buf);
-  snprintf(buf, sizeof(buf), "%s, %d. %s", DAYS[t.tm_wday], t.tm_mday, MONTHS[t.tm_mon]);
+  if (i18n::en())  // "Sunday, November 23"
+    snprintf(buf, sizeof(buf), "%s, %s %d", DAYS_EN[t.tm_wday], MONTHS_EN[t.tm_mon], t.tm_mday);
+  else  // "Nedelja, 23. novembar"
+    snprintf(buf, sizeof(buf), "%s, %d. %s", DAYS_SR[t.tm_wday], t.tm_mday, MONTHS_SR[t.tm_mon]);
   setText(s_date, buf);
 }
 
 static void updateStatus(const SystemStatus& sys) {
   String msg;
-  if (settings::get().wifiSsid.isEmpty()) msg = "Wi-Fi nije podešen — dodirni zupčanik";
-  else if (!sys.wifiConnected) msg = "Nema Wi-Fi veze, povezujem…";
+  if (settings::get().wifiSsid.isEmpty()) msg = TR("Wi-Fi nije podešen — dodirni zupčanik", "Wi-Fi is not set up — tap the gear");
+  else if (!sys.wifiConnected) msg = TR("Nema Wi-Fi veze, povezujem…", "No Wi-Fi, connecting…");
   else if (sys.tuya.state == LinkState::Error) msg = sys.tuya.message;
   else if (sys.ewelink.state == LinkState::Error) msg = sys.ewelink.message;
   setVisible(s_status, msg.length() > 0);
@@ -868,7 +875,9 @@ lv_obj_t* build() {
   s_bg = lv_image_create(s_scr);
   lv_obj_set_pos(s_bg, 0, 0);
   lv_obj_remove_flag(s_bg, LV_OBJ_FLAG_CLICKABLE);
-  s_noImg = label(s_scr, F_BODY, SOFT, "Ovaj deo još nema fotografiju.\nDodaj je sa telefona: Podešavanja → Web → Raspored → Fotografija.");
+  s_noImg = label(s_scr, F_BODY, SOFT,
+                  TR("Ovaj deo još nema fotografiju.\nDodaj je sa telefona: Podešavanja → Web → Raspored → Fotografija.",
+                     "This page has no photo yet.\nAdd one from your phone: Settings → Web → Layout → Photo."));
   lv_obj_set_style_text_align(s_noImg, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_center(s_noImg);
 
@@ -991,7 +1000,7 @@ lv_obj_t* build() {
   glass(s_editBar, 215);
   lv_obj_set_style_border_color(s_editBar, C_ON, 0);
   lv_obj_set_style_border_opa(s_editBar, LV_OPA_COVER, 0);
-  label(s_editBar, F_BODY, WHITE, "Prevuci oznake na mesto");
+  label(s_editBar, F_BODY, WHITE, TR("Prevuci oznake na mesto", "Drag the markers into place"));
   lv_obj_t* phone = box(s_editBar);
   lv_obj_add_flag(phone, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_set_size(phone, LV_SIZE_CONTENT, 46);
@@ -1002,7 +1011,7 @@ lv_obj_t* build() {
     setEditMode(false);
     settings_ui::open(settings_ui::TAB_WEB);  // QR kod za podešavanje sa telefona
   }, LV_EVENT_CLICKED, nullptr);
-  lv_obj_center(label(phone, F_BODY, WHITE, "Na telefonu"));
+  lv_obj_center(label(phone, F_BODY, WHITE, TR("Na telefonu", "On phone")));
   lv_obj_t* done = box(s_editBar);
   lv_obj_add_flag(done, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_set_size(done, LV_SIZE_CONTENT, 46);
@@ -1011,7 +1020,7 @@ lv_obj_t* build() {
   lv_obj_set_style_bg_color(done, C_ON, 0);
   lv_obj_set_style_bg_opa(done, LV_OPA_COVER, 0);
   lv_obj_add_event_cb(done, [](lv_event_t*) { setEditMode(false); }, LV_EVENT_CLICKED, nullptr);
-  lv_obj_center(label(done, F_BODY, C_ON_TEXT, "Gotovo"));
+  lv_obj_center(label(done, F_BODY, C_ON_TEXT, TR("Gotovo", "Done")));
   lv_obj_align(s_editBar, LV_ALIGN_BOTTOM_MID, 0, -16);
   lv_obj_add_flag(s_editBar, LV_OBJ_FLAG_HIDDEN);
 

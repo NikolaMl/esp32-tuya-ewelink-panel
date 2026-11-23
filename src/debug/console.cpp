@@ -24,6 +24,7 @@
 #include "ui/settings_screen.h"
 #include "ui/ui.h"
 #include "util/crypto.h"
+#include "util/restart.h"
 
 void consoleWake();  // main.cpp: komanda iz konzole = dodir (ekran ostaje upaljen)
 
@@ -464,6 +465,14 @@ static void handle(const String& cmd) {
     Serial.println("@OK dl");
   } else if (cmd == "ds" || cmd == "ds0") {
     demoSmoke(cmd == "ds");
+  } else if (cmd == "lang en" || cmd == "lang sr") {
+    Lang l = Lang::En;
+    i18n::parse(cmd.c_str() + 5, l);
+    if (settings::setLanguage(l)) restart::soon(500);
+    Serial.printf("@OK lang %s\n", i18n::code(l));
+  } else if (cmd == "rst") {
+    restart::soon(300);
+    Serial.println("@OK rst");
   } else if (cmd == "h") {
     ui::goHome();
     Serial.println("@OK home");

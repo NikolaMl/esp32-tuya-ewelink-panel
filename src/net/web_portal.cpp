@@ -16,6 +16,8 @@
 #include "net/web_app_html.h"
 #include "ui/background.h"
 #include "util/crypto.h"
+#include "util/i18n.h"
+#include "util/restart.h"
 
 namespace portal {
 
@@ -103,7 +105,7 @@ static const char* CSS =
     ".ok{color:#3fb950}.err{color:#f85149}.muted{color:#7d8896;font-size:14px}";
 
 static String page(const String& title, const String& body) {
-  return "<!doctype html><html lang=sr><head><meta charset=utf-8>"
+  return String("<!doctype html><html lang=") + i18n::code(i18n::lang()) + "><head><meta charset=utf-8>"
          "<meta name=viewport content='width=device-width,initial-scale=1'><title>" +
          esc(title) + "</title><style>" + CSS + "</style></head><body><main>" + body + "</main></body></html>";
 }
@@ -147,23 +149,26 @@ static bool pinOk() {
 }
 
 static String lockText() {
-  return "Previše pogrešnih PIN-ova. Sačekaj " + String((pinLockLeftMs() + 999) / 1000) + " s pa probaj ponovo.";
+  return TR("Previše pogrešnih PIN-ova. Sačekaj ", "Too many wrong PINs. Wait ") + String((pinLockLeftMs() + 999) / 1000) +
+         TR(" s pa probaj ponovo.", " s and try again.");
 }
 
 static bool checkPin() {  // za HTML stranice
   if (pinOk()) return true;
   const bool locked = pinLockLeftMs() > 0;
   s_server.send(locked ? 429 : 403, "text/html; charset=utf-8",
-                page("Pogrešan PIN", "<h1>" + String(locked ? "Zaključano" : "Pogrešan PIN") + "</h1><p>" +
-                                         (locked ? lockText() : String("PIN je prikazan na panelu: Podešavanja → Web.")) +
-                                         "</p><a class=btn href='/'>Nazad</a>"));
+                page(TR("Pogrešan PIN", "Wrong PIN"),
+                     "<h1>" + String(locked ? TR("Zaključano", "Locked") : TR("Pogrešan PIN", "Wrong PIN")) + "</h1><p>" +
+                         (locked ? lockText() : String(TR("PIN je prikazan na panelu: Podešavanja → Web.",
+                                                           "The PIN is shown on the panel: Settings → Web."))) +
+                         "</p><a class=btn href='/'>" + TR("Nazad", "Back") + "</a>"));
   return false;
 }
 
 static bool apiPin() {  // za /api/*
   if (pinOk()) return true;
   if (pinLockLeftMs()) s_server.send(429, "text/plain; charset=utf-8", lockText());
-  else s_server.send(403, "text/plain; charset=utf-8", "Pogrešan PIN");
+  else s_server.send(403, "text/plain; charset=utf-8", TR("Pogrešan PIN", "Wrong PIN"));
   return false;
 }
 
@@ -177,7 +182,7 @@ static void sendOk() { s_server.send(200, "application/json", "{\"ok\":true}"); 
 
 static bool readBody(JsonDocument& b) {
   if (deserializeJson(b, s_server.arg("plain"))) {
-    s_server.send(400, "text/plain; charset=utf-8", "Neispravan zahtev");
+    s_server.send(400, "text/plain; charset=utf-8", TR("Neispravan zahtev", "Invalid request"));
     return false;
   }
   return true;
@@ -185,7 +190,18 @@ static bool readBody(JsonDocument& b) {
 
 // ---------------------------------------------------------------- aplikacija
 
-static void handleApp() { s_server.send_P(200, "text/html; charset=utf-8", WEB_APP_HTML); }
+// Sačuvan jezik ide u <html lang="..">, da aplikacija odmah crta na pravom jeziku. HTML se ne kopira:
+// šalje se novi početak, pa ostatak pravo iz flash-a.
+static void handleApp() {
+  static const char HEAD[] = "<!doctype html>\n<html lang=\"sr\">";
+  const size_t skip = strncmp(WEB_APP_HTML, HEAD, sizeof(HEAD) - 1) == 0 ? sizeof(HEAD) - 1 : 0;
+  String head;
+  if (skip) head = String("<!doctype html>\n<html lang=\"") + i18n::code(settings::language()) + "\">";
+  const size_t rest = sizeof(WEB_APP_HTML) - 1 - skip;
+  s_server.setContentLength(head.length() + rest);
+  s_server.send(200, "text/html; charset=utf-8", head);
+  s_server.sendContent(WEB_APP_HTML + skip, rest);
+}
 
 static const char* linkStr(LinkState s) {
   switch (s) {
@@ -204,6 +220,7 @@ static void handleState() {
   const std::vector<settings::Position> pos = settings::positions();
 
   JsonDocument d;
+  d["lang"] = i18n::code(settings::language());  // sačuvan izbor (važi posle restarta)
   d["ip"] = WiFi.localIP().toString();
   d["wifi"] = st.wifiSsid;
   for (int i = 0; i < 2; i++) {
@@ -265,7 +282,7 @@ static void handleState() {
     char v[16] = "--";
     if (x.hasValue) {
       snprintf(v, sizeof(v), "%.1f°", x.value);
-      if (char* dot = strchr(v, '.')) *dot = ',';
+      if (char* dot = strchr(v, '.'); dot && !i18n::en()) *dot = ',';  // decimalni zarez na srpskom
     }
     item(items, x.key(), x.name, "s", x.online)["v"] = v;
   }
@@ -279,7 +296,7 @@ static void handleState() {
   JsonArray scArr = d["scenes"].to<JsonArray>();
   for (const scenes::Scene& s : scenes::all()) {
     JsonObject so = item(items, scenes::keyFor(s.id), s.name, "x", true);
-    so["v"] = String(s.actions.size()) + " uređ.";
+    so["v"] = String(s.actions.size()) + (i18n::en() ? (s.actions.size() == 1 ? " device" : " devices") : " uređ.");
     so["c"] = "p";
     JsonObject o = scArr.add<JsonObject>();
     o["id"] = s.id;
@@ -376,7 +393,7 @@ static void handleTuya() {
   String ep = b["ep"] | "", id = b["id"] | "", secret = b["secret"] | "";
   bool known = false;
   for (size_t i = 0; i < TUYA_REGION_COUNT; i++) known |= ep == TUYA_REGIONS[i].endpoint;
-  if (!known) return s_server.send(400, "text/plain; charset=utf-8", "Nepoznat data centar");
+  if (!known) return s_server.send(400, "text/plain; charset=utf-8", TR("Nepoznat data centar", "Unknown data center"));
   id.trim();
   secret.trim();
   settings::setTuya(ep, id, secret.length() ? secret : st.tuyaSecret);
@@ -401,7 +418,7 @@ static void handleWifi() {
   if (!readBody(b)) return;
   String ssid = b["ssid"] | "";
   ssid.trim();
-  if (ssid.isEmpty()) return s_server.send(400, "text/plain; charset=utf-8", "Unesi naziv mreže");
+  if (ssid.isEmpty()) return s_server.send(400, "text/plain; charset=utf-8", TR("Unesi naziv mreže", "Enter the network name"));
   settings::setWifi(ssid, b["pass"] | "");
   sendOk();
 }
@@ -417,7 +434,7 @@ static int pageArg() {
 static void handleBgGet() {
   if (!apiPin()) return;
   const int page = pageArg();
-  if (page < 0 || !background::hasImage(page)) return s_server.send(404, "text/plain", "nema slike");
+  if (page < 0 || !background::hasImage(page)) return s_server.send(404, "text/plain; charset=utf-8", TR("nema slike", "no photo"));
   s_server.setContentLength(background::SIZE);
   s_server.send(200, "application/octet-stream", "");
   background::stream(page, [](const uint8_t* d, size_t n) { s_server.sendContent(reinterpret_cast<const char*>(d), n); });
@@ -455,8 +472,10 @@ static void onBgUpload() {
 }
 
 static void handleBgDone() {
-  if (!s_upPin) return s_server.send(403, "text/plain; charset=utf-8", "Pogrešan PIN");
-  if (!s_upOk) return s_server.send(400, "text/plain; charset=utf-8", "Slika nije sačuvana (nema mesta ili prekinuta veza)");
+  if (!s_upPin) return s_server.send(403, "text/plain; charset=utf-8", TR("Pogrešan PIN", "Wrong PIN"));
+  if (!s_upOk)
+    return s_server.send(400, "text/plain; charset=utf-8",
+                         TR("Slika nije sačuvana (nema mesta ili prekinuta veza)", "Photo not saved (no space left or connection lost)"));
   background::markChanged();
   settings::touchUi();
   sendOk();
@@ -465,8 +484,8 @@ static void handleBgDone() {
 static void handleBgReset() {
   if (!apiPin()) return;
   const int page = pageArg();
-  if (page < 0) return s_server.send(400, "text/plain; charset=utf-8", "Nepostojeći deo");
-  if (!background::removeCustom(page)) return s_server.send(500, "text/plain; charset=utf-8", "Brisanje nije uspelo");
+  if (page < 0) return s_server.send(400, "text/plain; charset=utf-8", TR("Nepostojeći deo", "No such page"));
+  if (!background::removeCustom(page)) return s_server.send(500, "text/plain; charset=utf-8", TR("Brisanje nije uspelo", "Delete failed"));
   background::markChanged();
   settings::touchUi();
   sendOk();
@@ -486,7 +505,7 @@ static void handleScenes() {
     if (s.id.isEmpty() || s.id.length() > 12) s.id = crypto::randomAlnum(6);
     s.name = String(o["n"] | "").substring(0, 32);
     s.name.trim();
-    if (s.name.isEmpty()) s.name = "Scena";
+    if (s.name.isEmpty()) s.name = TR("Scena", "Scene");
     for (JsonObject a : o["a"].as<JsonArray>()) {
       if (s.actions.size() >= scenes::MAX_ACTIONS) break;
       const String k = a["k"] | "", op = a["o"] | "";
@@ -500,7 +519,7 @@ static void handleScenes() {
     }
     list.push_back(s);
   }
-  if (!scenes::save(list)) return s_server.send(500, "text/plain; charset=utf-8", "Scene nisu sačuvane");
+  if (!scenes::save(list)) return s_server.send(500, "text/plain; charset=utf-8", TR("Scene nisu sačuvane", "Scenes not saved"));
   // Dugmad obrisanih scena nestaju i sa slike
   std::vector<settings::Position> pos = settings::positions();
   const size_t before = pos.size();
@@ -522,7 +541,7 @@ static void handleSceneRun() {
   JsonDocument b;
   if (!readBody(b)) return;
   scenes::Scene s;
-  if (!scenes::find(b["id"] | "", s)) return s_server.send(404, "text/plain; charset=utf-8", "Nema te scene");
+  if (!scenes::find(b["id"] | "", s)) return s_server.send(404, "text/plain; charset=utf-8", TR("Nema te scene", "No such scene"));
   scenes::requestRun(s.id);  // izvršava UI task (PIN na panelu ako treba isključiti alarm)
   sendOk();
 }
@@ -534,11 +553,11 @@ static void handlePages() {
   if (!readBody(b)) return;
   const String op = b["op"] | "";
   if (op == "add") {
-    if (!settings::addPage(b["name"] | "")) return s_server.send(400, "text/plain; charset=utf-8", "Najviše " + String(HOME_MAX_PAGES) + " delova");
+    if (!settings::addPage(b["name"] | "")) return s_server.send(400, "text/plain; charset=utf-8", TR("Najviše ", "At most ") + String(HOME_MAX_PAGES) + TR(" delova", " pages"));
   } else if (op == "del") {
     const int i = b["i"] | -1;
     const uint8_t n = settings::pageCount();
-    if (n < 2 || i < 0 || i >= n) return s_server.send(400, "text/plain; charset=utf-8", "Ne može se obrisati");
+    if (n < 2 || i < 0 || i >= n) return s_server.send(400, "text/plain; charset=utf-8", TR("Ne može se obrisati", "This page can't be deleted"));
     background::deletePage(i, n);
     settings::deletePage(i);
     background::markChanged();
@@ -547,22 +566,42 @@ static void handlePages() {
     for (JsonVariant v : b["names"].as<JsonArray>()) names.push_back(v | "");
     settings::renamePages(names);
   } else {
-    return s_server.send(400, "text/plain; charset=utf-8", "Nepoznata radnja");
+    return s_server.send(400, "text/plain; charset=utf-8", TR("Nepoznata radnja", "Unknown action"));
   }
   Serial.printf("[web] delovi: %s -> %u\n", op.c_str(), (unsigned)settings::pageCount());
   sendOk();
+}
+
+// Jezik panela i aplikacije: {"lang":"en"|"sr"} (ili ?lang=). Promena se primenjuje restartom panela;
+// web PIN ostaje isti posle softverskog restarta, pa telefon nastavlja bez ponovnog skeniranja.
+static void handleLang() {
+  if (!apiPin()) return;
+  String code = s_server.hasArg("lang") ? s_server.arg("lang") : String();
+  if (code.isEmpty()) {
+    JsonDocument b;
+    if (!readBody(b)) return;
+    code = b["lang"] | "";
+  }
+  Lang l = Lang::En;
+  if (!i18n::parse(code.c_str(), l)) return s_server.send(400, "text/plain; charset=utf-8", TR("Nepoznat jezik", "Unknown language"));
+  const bool changed = settings::setLanguage(l);
+  if (changed) restart::soon(1500);
+  Serial.printf("[web] jezik: %s%s\n", code.c_str(), changed ? " (restart)" : "");
+  s_server.send(200, "application/json", changed ? "{\"ok\":true,\"restart\":true}" : "{\"ok\":true,\"restart\":false}");
 }
 
 static void sendOAuthRedirect(const String& state) {
   const Settings st = settings::get();
   if (!st.ewAppId.length() || !st.ewAppSecret.length()) {
     s_server.send(400, "text/html; charset=utf-8",
-                  page("eWeLink", "<h1>Prvo unesi App ID i App Secret</h1><a class=btn href='/'>Nazad</a>"));
+                  page("eWeLink", String("<h1>") + TR("Prvo unesi App ID i App Secret", "Enter the App ID and App Secret first") +
+                                      "</h1><a class=btn href='/'>" + TR("Nazad", "Back") + "</a>"));
     return;
   }
   if (time(nullptr) < 1700000000) {
     s_server.send(503, "text/html; charset=utf-8",
-                  page("eWeLink", "<h1>Panel još nema tačno vreme</h1><p>Sačekaj par sekundi pa probaj ponovo.</p>"));
+                  page("eWeLink", String("<h1>") + TR("Panel još nema tačno vreme", "The panel doesn't have the correct time yet") +
+                                      "</h1><p>" + TR("Sačekaj par sekundi pa probaj ponovo.", "Wait a few seconds and try again.") + "</p>"));
     return;
   }
   s_server.sendHeader("Location", EWeLinkClient::oauthUrl(st.ewAppId, st.ewAppSecret, redirectUrl(), state));
@@ -576,7 +615,8 @@ static void handleLogin() {
   if (!stateValid(st)) {
     Serial.println("[web] eWeLink: link iz QR koda je istekao");
     s_server.send(410, "text/html; charset=utf-8",
-                  page("eWeLink", "<h1>Link je istekao</h1><p>Na panelu ponovo pritisni „Poveži nalog“.</p>"));
+                  page("eWeLink", String("<h1>") + TR("Link je istekao", "This link has expired") + "</h1><p>" +
+                                      TR("Na panelu ponovo pritisni „Poveži nalog“.", "Press “Link account” on the panel again.") + "</p>"));
     return;
   }
   sendOAuthRedirect(st);
@@ -598,13 +638,15 @@ static void handleCallback() {
                 region.c_str(), stateValid(st) ? "ok" : "NEISPRAVAN/istekao");
   if (!stateValid(st)) {
     s_server.send(400, "text/html; charset=utf-8",
-                  page("eWeLink", "<h1>Nevažeći ili istekao zahtev</h1><p>Ponovo pokreni povezivanje sa panela.</p>"));
+                  page("eWeLink", String("<h1>") + TR("Nevažeći ili istekao zahtev", "Invalid or expired request") + "</h1><p>" +
+                                      TR("Ponovo pokreni povezivanje sa panela.", "Start linking again from the panel.") + "</p>"));
     return;
   }
   consumeState();
   if (!code.length()) {
-    setOAuthResult(false, "eWeLink nije vratio kod");
-    s_server.send(400, "text/html; charset=utf-8", page("eWeLink", "<h1>eWeLink nije vratio kod</h1>"));
+    const char* msg = TR("eWeLink nije vratio kod", "eWeLink returned no code");
+    setOAuthResult(false, msg);
+    s_server.send(400, "text/html; charset=utf-8", page("eWeLink", String("<h1>") + msg + "</h1>"));
     return;
   }
   const Settings cfg = settings::get();
@@ -613,14 +655,16 @@ static void handleCallback() {
   if (EWeLinkClient::exchangeCode(cfg.ewAppId, cfg.ewAppSecret, code, region.length() ? region : "eu",
                                   redirectUrl(), err)) {
     settings::touchEWeLinkTokens();
-    setOAuthResult(true, "eWeLink nalog je povezan (region " + region + ")");
+    setOAuthResult(true, TR("eWeLink nalog je povezan (region ", "eWeLink account linked (region ") + region + ")");
     s_server.send(200, "text/html; charset=utf-8",
-                  page("eWeLink", "<h1 class=ok>Povezano!</h1><p>Panel sada učitava tvoje eWeLink prekidače. "
-                                  "Možeš da zatvoriš ovu stranicu.</p>"));
+                  page("eWeLink", String("<h1 class=ok>") + TR("Povezano!", "Linked!") + "</h1><p>" +
+                                      TR("Panel sada učitava tvoje eWeLink prekidače. Možeš da zatvoriš ovu stranicu.",
+                                         "The panel is now loading your eWeLink switches. You can close this page.") +
+                                      "</p>"));
   } else {
-    setOAuthResult(false, "Prijava nije uspela: " + err);
+    setOAuthResult(false, TR("Prijava nije uspela: ", "Sign-in failed: ") + err);
     s_server.send(502, "text/html; charset=utf-8",
-                  page("eWeLink", "<h1 class=err>Prijava nije uspela</h1><p>" + esc(err) + "</p>"));
+                  page("eWeLink", String("<h1 class=err>") + TR("Prijava nije uspela", "Sign-in failed") + "</h1><p>" + esc(err) + "</p>"));
   }
 }
 
@@ -639,6 +683,7 @@ static void task(void*) {
   s_server.on("/api/pages", HTTP_POST, handlePages);
   s_server.on("/api/scenes", HTTP_POST, handleScenes);
   s_server.on("/api/scenes/run", HTTP_POST, handleSceneRun);
+  s_server.on("/api/lang", HTTP_POST, handleLang);
   s_server.on("/ewelink/start", HTTP_GET, handleStart);
   s_server.on("/ewelink/login", HTTP_GET, handleLogin);
   s_server.on("/ewelink/callback", HTTP_GET, handleCallback);

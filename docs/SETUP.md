@@ -65,10 +65,20 @@ Fill in `WIFI_SSID`, `WIFI_PASSWORD`, `TUYA_ACCESS_ID`, `TUYA_ACCESS_SECRET`, `E
 - These are only **initial** values. Anything saved on the panel (in NVS) takes precedence.
 - `include/secrets.h` is in `.gitignore`. Never commit it.
 
+**Interface language**: a fresh panel starts in English. To make Serbian (Latin script) the default
+instead, set `UI_DEFAULT_LANGUAGE` in [include/config.h](../include/config.h) to `"sr"` (the default
+is `"en"`). Like the values above, it is only an initial value: a language chosen later on the panel or
+in the web app is saved in NVS and takes precedence.
+
 ## 4. Wi-Fi
 
-On the panel: **gear icon → Wi-Fi → Skeniraj** (scan). Pick your network, type the password on the
-on-screen keyboard and tap **Sačuvaj i poveži** (save & connect).
+> **Language**: the panel starts in **English**. To switch to Serbian (Latin script), tap the gear
+> icon, open the **Web** tab and tap **Srpski** in the **Jezik / Language** row. The panel saves the
+> choice and restarts in a few seconds. You can switch back the same way (**English**), or later from
+> the phone web app (**Accounts** tab → **Language**).
+
+On the panel: **gear icon → Wi-Fi → Scan**. Pick your network, type the password on the
+on-screen keyboard and tap **Save and connect**.
 
 - The ESP32-S3 supports **2.4 GHz only**.
 - After it connects, the Wi-Fi tab shows the IP address.
@@ -103,7 +113,7 @@ The panel uses the **Tuya Cloud OpenAPI** with your own free cloud project. Your
    subscribed.
 5. On the project's **Overview**, copy the **Access ID / Client ID** and the
    **Access Secret / Client Secret**.
-6. Enter them on the panel (**Podešavanja → Tuya**) or, easier, in the web app (**Nalozi** tab). Pick
+6. Enter them on the panel (**Settings → Tuya**) or, easier, in the web app (**Accounts** tab). Pick
    the same data center there.
 
 Within a few seconds the **Tuya** dot in the device list turns green and your devices appear.
@@ -113,7 +123,7 @@ refresh. No extra step is needed, because the panel always reads the full device
 account.
 
 **Trial plan**: the free IoT Core *Trial* lasts a few months and has a monthly API call quota.
-- When it expires, the panel shows `Tuya 28841002: Tuya trial je istekao`.
+- When it expires, the panel shows `Tuya 28841002: Tuya trial expired - extend it at iot.tuya.com`.
 - Extend it on iot.tuya.com: **Cloud → Cloud Services → IoT Core → Extend Trial Period**. Approval
   usually takes a few hours.
 - To save calls, the panel refreshes every 10 s only while someone uses it, and every 5 min
@@ -146,7 +156,7 @@ email, usually within 1–3 working days.
 
 ### 2. Find the panel's Redirect URL
 
-On the panel open **Podešavanja → eWeLink**, or in the web app the **Nalozi** tab. Both show the
+On the panel open **Settings → eWeLink**, or in the web app the **Accounts** tab. Both show the
 **Redirect URL**, for example:
 
 ```
@@ -160,20 +170,20 @@ the panel's IP address, and no trailing slash. A new app can take 5–15 minutes
 
 ### 4. Enter the keys
 
-Copy the app's **App ID** and **App Secret** to the panel (**Podešavanja → eWeLink → Sačuvaj**) or to
-the web app (**Nalozi** tab → eWeLink → **Sačuvaj**). Copy-paste in the web app on a computer is the
+Copy the app's **App ID** and **App Secret** to the panel (**Settings → eWeLink → Save**) or to
+the web app (**Accounts** tab → eWeLink → **Save**). Copy-paste in the web app on a computer is the
 easiest way.
 
 ### 5. Link your account
 
-Tap **Poveži nalog** (link account) in either place:
+Tap **Link account** in either place:
 
 - **On the panel**: the panel shows a QR code. Scan it with a phone on the **same Wi-Fi** (not on
   mobile data). The link is valid for 10 minutes.
 - **In the web app**: the button opens the eWeLink sign-in page in the same browser.
 
 Sign in with the account you use in the eWeLink app. eWeLink sends the browser back to the panel,
-which shows **"Povezano!"** (connected). Within seconds the **eWeLink** dot turns green and your
+which shows **"Linked!"**. Within seconds the **eWeLink** dot turns green and your
 Sonoff devices appear. In the web app they carry a blue **e** icon.
 
 ### Tokens and lifetime
@@ -183,8 +193,8 @@ Sonoff devices appear. In the web app they carry a blue **e** icon.
 - The refresh token is valid for 60 days and is replaced on every renewal. As long as the panel
   runs, it stays signed in indefinitely.
 - If the panel is off for **more than 60 days**, the session expires
-  ("eWeLink: prijava istekla - ponovo poveži nalog"). Tap **Poveži nalog** again.
-- **Odjavi** (sign out) deletes the stored tokens.
+  ("eWeLink: login expired - link the account again (Settings)"). Tap **Link account** again.
+- **Sign out** deletes the stored tokens.
 
 ### Does the IP address matter later?
 
@@ -205,10 +215,10 @@ avoids that.
 | What you see | Cause |
 |---|---|
 | The sign-in page never returns to the panel | The phone is not on the home Wi-Fi, or the Redirect URL on dev.ewelink.cc doesn't match exactly. |
-| "Link je istekao" (link expired) | The QR link is older than 10 minutes. Tap **Poveži nalog** again. |
-| "Nevažeći ili istekao zahtev" (invalid or expired request) | The sign-in took too long, or an old tab was used. Start again. |
-| "Panel još nema tačno vreme" (no correct time yet) | The panel hasn't synced NTP yet. Wait a few seconds. |
-| "Prijava nije uspela: …" (sign-in failed) | The error from eWeLink follows, e.g. wrong App Secret. |
+| "This link has expired" | The QR link is older than 10 minutes. Tap **Link account** again. |
+| "Invalid or expired request" | The sign-in took too long, or an old tab was used. Start again. |
+| "The panel doesn't have the correct time yet" | The panel hasn't synced NTP yet. Wait a few seconds. |
+| "Sign-in failed: …" | The error from eWeLink follows, e.g. wrong App Secret. |
 
 The serial log shows each step (`[web] eWeLink: …`), but never the one-time code or the tokens.
 
@@ -216,18 +226,19 @@ The serial log shows each step (`[web] eWeLink: …`), but never the one-time co
 
 ## 7. Phone web app
 
-1. On the panel open **Podešavanja → Web**, or long press the home screen photo and tap
-   **Na telefonu**.
+1. On the panel open **Settings → Web**, or long press the home screen photo and tap
+   **On phone**.
 2. Scan the QR code with a phone on the **same Wi-Fi**. The URL contains the PIN, so the app opens
    directly.
-3. If you open `http://<panel-ip>/` by hand, enter the 6-digit PIN shown under **Podešavanja → Web**.
+3. If you open `http://<panel-ip>/` by hand, enter the 6-digit PIN shown under **Settings → Web**.
 
 How the PIN works:
 
 - The PIN is **new at every boot**. After a reboot or a new flash, scan the QR code again; an old
-  tab asks for the new PIN by itself.
+  tab asks for the new PIN by itself. The panel's own restart after a language change keeps the PIN,
+  so the web app stays logged in.
 - After **10 different wrong PINs**, the web app is locked for **60 s**.
-- If an alarm PIN is set, **Podešavanja** on the panel (and therefore the QR code) is protected by
+- If an alarm PIN is set, **Settings** on the panel (and therefore the QR code) is protected by
   that PIN.
 
 The tabs are described in the [README](../README.md#phone-web-app).
@@ -240,14 +251,14 @@ Each home screen page (up to 6) can have its own photo.
 
 ### From the phone (recommended)
 
-In the web app, open **Raspored**, select the page and tap **📷 Fotografija**:
+In the web app, open **Layout**, select the page and tap **📷 Photo**:
 
 1. Pick a photo.
 2. Crop it to 800×480 with your finger or the sliders. The existing markers are drawn on top, so you
    can line them up.
 3. Send it to the panel.
 
-Photos are stored in LittleFS (`/bg.rgb565`, `/bg1.rgb565`, …, 768,000 bytes each). **Vrati ugrađenu**
+Photos are stored in LittleFS (`/bg.rgb565`, `/bg1.rgb565`, …, 768,000 bytes each). **Restore built-in**
 switches the first page back to the built-in image.
 
 > Writing a photo to flash can make the screen glitch for a moment. That's expected; see
@@ -267,7 +278,7 @@ pio run -t upload
 `make_background.py` uses only the Python standard library and macOS `sips`.
 
 The repository ships a drawn demo house (`assets/demo-house.svg`, rendered to `assets/demo-house.png`).
-The easiest way to use your own house is to upload its photo from the phone (**Raspored → 📷 Fotografija**):
+The easiest way to use your own house is to upload its photo from the phone (**Layout → 📷 Photo**):
 it is stored on the panel, survives firmware updates and never ends up in the repository. If you do
 bake your own photo into the firmware, keep the source photo out of git (for example in the ignored
 `backup/` folder) before you publish a fork.

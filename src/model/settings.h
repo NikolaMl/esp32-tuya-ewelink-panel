@@ -3,6 +3,8 @@
 
 #include <vector>
 
+#include "util/i18n.h"
+
 // Podešavanja koja korisnik menja sa ekrana ili preko web stranice.
 // Čuvaju se u NVS memoriji; include/secrets.h (ako postoji) daje samo početne vrednosti.
 struct Settings {
@@ -35,8 +37,14 @@ void touchEWeLinkTokens();
 // Raste sa svakom promenom; mrežni task po tome zna da treba da primeni nova podešavanja
 uint32_t revision();
 
-// PIN za web podešavanje (nasumičan pri svakom pokretanju, prikazan na ekranu)
+// PIN za web podešavanje (nasumičan pri svakom pokretanju, prikazan na ekranu).
+// Softverski restart (promena jezika) zadržava isti PIN, da telefon ostane prijavljen.
 const String& webPin();
+
+// Jezik interfejsa sačuvan u NVS-u (podrazumevano UI_DEFAULT_LANGUAGE iz config.h).
+// Aktivni jezik je i18n::lang(); novi se primenjuje restartom (restart::soon).
+Lang language();
+bool setLanguage(Lang l);  // true = promenjen (treba restart)
 
 // Prekidači sakriveni sa glavnog ekrana (ključ = SwitchInfo::key()). Čuva se u NVS-u.
 // Ima svoj brojač izmena, da sakrivanje ne bi ponovo pokretalo Wi-Fi i cloud klijente.

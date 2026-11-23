@@ -8,6 +8,7 @@
 #include "net/cloud_task.h"
 #include "ui/theme.h"
 #include "ui/ui.h"
+#include "util/i18n.h"
 
 namespace thermo_ui {
 
@@ -48,7 +49,8 @@ static bool current(ThermostatState& out) {
 static void sendPending() {
   if (!s_dirty) return;
   s_dirty = false;
-  if (!cloud::requestThermostat(s_key, -1, s_temp)) ui::showToast("Komanda nije poslata, pokušaj ponovo");
+  if (!cloud::requestThermostat(s_key, -1, s_temp))
+    ui::showToast(TR("Komanda nije poslata, pokušaj ponovo", "Command not sent, try again"));
 }
 
 static void refresh() {
@@ -65,14 +67,14 @@ static void refresh() {
   setText(s_name, t.name.c_str());
   String st;
   if (!t.online) {
-    st = "Nedostupan";
+    st = TR("Nedostupan", "Offline");
   } else {
-    st = "Trenutno " + (t.hasCurrent ? thermoDegrees(t.current) : String("--"));
-    if (!t.on) st += " · isključen";
-    else if (t.heating == 1) st += " · greje";
-    else if (t.heating == 0) st += " · ne greje";
+    st = TR("Trenutno ", "Now ") + (t.hasCurrent ? thermoDegrees(t.current) : String("--"));
+    if (!t.on) st += TR(" · isključen", " · off");
+    else if (t.heating == 1) st += TR(" · greje", " · heating");
+    else if (t.heating == 0) st += TR(" · ne greje", " · idle");
     if (t.mode.length()) st += " · " + thermoModeText(t.mode);
-    if (t.pending) st += " · šaljem…";
+    if (t.pending) st += TR(" · šaljem…", " · sending…");
   }
   setText(s_state, st.c_str());
   if (!s_dirty && t.hasTarget) s_temp = t.target;  // dok se dodiruje, važi prikazana vrednost
@@ -83,9 +85,11 @@ static void refresh() {
     if (t.hasPower) lv_obj_remove_flag(s_power, LV_OBJ_FLAG_HIDDEN);
     else lv_obj_add_flag(s_power, LV_OBJ_FLAG_HIDDEN);
   }
-  setText(s_powerText, t.on ? "Isključi" : "Uključi");
+  setText(s_powerText, t.on ? TR("Isključi", "Turn off") : TR("Uključi", "Turn on"));
   const bool sched = t.mode == "auto" || t.mode == "program" || t.mode == "schedule" || t.mode == "smart";
-  setText(s_hint, sched ? "Po rasporedu: termostat može sam da vrati temperaturu iz svog rasporeda." : "");
+  setText(s_hint, sched ? TR("Po rasporedu: termostat može sam da vrati temperaturu iz svog rasporeda.",
+                             "On schedule: the thermostat may switch back to its own scheduled temperature.")
+                        : "");
 }
 
 static void onStep(lv_event_t* e) {
@@ -93,11 +97,11 @@ static void onStep(lv_event_t* e) {
   ThermostatState t;
   if (!current(t)) return;
   if (!t.online) {
-    ui::showToast(t.name + " je trenutno nedostupan");
+    ui::showToast(t.name + TR(" je trenutno nedostupan", " is offline right now"));
     return;
   }
   if (!t.hasTarget && isnan(s_temp)) {
-    ui::showToast(t.name + " ne javlja željenu temperaturu");
+    ui::showToast(t.name + TR(" ne javlja željenu temperaturu", " doesn't report a target temperature"));
     return;
   }
   s_temp = thermoClamp(t, (isnan(s_temp) ? t.target : s_temp) + dir * t.step);
@@ -110,11 +114,12 @@ static void onPower(lv_event_t*) {
   ThermostatState t;
   if (!current(t)) return;
   if (!t.online) {
-    ui::showToast(t.name + " je trenutno nedostupan");
+    ui::showToast(t.name + TR(" je trenutno nedostupan", " is offline right now"));
     return;
   }
   sendPending();
-  if (!cloud::requestThermostat(s_key, t.on ? 0 : 1, NAN)) ui::showToast("Komanda nije poslata, pokušaj ponovo");
+  if (!cloud::requestThermostat(s_key, t.on ? 0 : 1, NAN))
+    ui::showToast(TR("Komanda nije poslata, pokušaj ponovo", "Command not sent, try again"));
 }
 
 static lv_obj_t* roundButton(lv_obj_t* parent, const char* symbol, int dir) {
@@ -192,7 +197,7 @@ void build() {
   lv_obj_align(plus, LV_ALIGN_RIGHT_MID, -10, 6);
   s_target = label(card, F_HUGE, C_TEXT, "--");
   lv_obj_align(s_target, LV_ALIGN_CENTER, 0, -4);
-  lv_obj_t* cap = label(card, F_SMALL, C_MUTED, "željena temperatura");
+  lv_obj_t* cap = label(card, F_SMALL, C_MUTED, TR("željena temperatura", "target temperature"));
   lv_obj_align(cap, LV_ALIGN_CENTER, 0, 40);
 
   // Uključi / Isključi (samo ako uređaj ima prekidač) i napomena za režim po rasporedu
@@ -217,7 +222,7 @@ void build() {
   lv_label_set_text(pi, LV_SYMBOL_POWER);
   s_powerText = lv_label_create(s_power);
   lv_obj_set_style_text_font(s_powerText, F_BODY, 0);
-  lv_label_set_text(s_powerText, "Isključi");
+  lv_label_set_text(s_powerText, TR("Isključi", "Turn off"));
 
   s_hint = label(card, F_SMALL, C_MUTED);
   lv_obj_set_width(s_hint, CARD_W - 48 - 200);
