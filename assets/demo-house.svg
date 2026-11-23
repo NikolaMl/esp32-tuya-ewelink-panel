@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="480" viewBox="0 0 800 480">
+  <!-- Neutralna podrazumevana pozadina početnog ekrana (kuća u sumrak). Izvor za assets/background.rgb565:
+       render u PNG 800x480, pa: python3 tools/make_background.py demo-house.png -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#14203a"/>
+      <stop offset="0.55" stop-color="#3b4a72"/>
+      <stop offset="0.85" stop-color="#b9876f"/>
+      <stop offset="1" stop-color="#e2a874"/>
+    </linearGradient>
+    <linearGradient id="lawn" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2c4a33"/>
+      <stop offset="1" stop-color="#16271b"/>
+    </linearGradient>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d9d3c7"/>
+      <stop offset="1" stop-color="#b8b0a2"/>
+    </linearGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8a5a3a"/>
+      <stop offset="1" stop-color="#a26c45"/>
+    </linearGradient>
+    <linearGradient id="lit" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd98a"/>
+      <stop offset="1" stop-color="#f3a948"/>
+    </linearGradient>
+    <linearGradient id="dark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#33405a"/>
+      <stop offset="1" stop-color="#1d2536"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffcf7a" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ffcf7a" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="slats" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="8" fill="#6f7680"/>
+      <rect width="8" height="2" y="6" fill="#596069"/>
+    </pattern>
+  </defs>
+
+  <rect width="800" height="480" fill="url(#sky)"/>
+  <!-- zvezde i mesec -->
+  <g fill="#fff" opacity="0.7">
+    <circle cx="70" cy="40" r="1.2"/><circle cx="160" cy="80" r="1"/><circle cx="250" cy="30" r="1.3"/>
+    <circle cx="520" cy="50" r="1"/><circle cx="610" cy="25" r="1.2"/><circle cx="700" cy="70" r="1"/>
+    <circle cx="350" cy="60" r="0.9"/><circle cx="455" cy="22" r="1.1"/>
+  </g>
+  <circle cx="680" cy="110" r="22" fill="#f4ecd6" opacity="0.9"/>
+  <circle cx="690" cy="104" r="20" fill="#25325a"/>
+
+  <!-- brda -->
+  <path d="M0 330 Q120 270 260 315 T520 300 T800 290 V480 H0Z" fill="#243650" opacity="0.9"/>
+  <path d="M0 360 Q160 320 330 350 T800 335 V480 H0Z" fill="#1c2b22"/>
+
+  <!-- travnjak -->
+  <rect y="395" width="800" height="85" fill="url(#lawn)"/>
+
+  <!-- drveće levo -->
+  <g>
+    <rect x="86" y="300" width="10" height="100" fill="#3a2a1e"/>
+    <circle cx="91" cy="275" r="48" fill="#1f3b2a"/>
+    <circle cx="60" cy="305" r="32" fill="#244532"/>
+    <circle cx="125" cy="300" r="34" fill="#1b3526"/>
+    <rect x="30" y="340" width="7" height="60" fill="#3a2a1e"/>
+    <circle cx="33" cy="330" r="26" fill="#22412e"/>
+  </g>
+  <!-- drvo desno -->
+  <g>
+    <rect x="752" y="300" width="9" height="100" fill="#3a2a1e"/>
+    <circle cx="757" cy="285" r="40" fill="#1f3b2a"/>
+    <circle cx="785" cy="310" r="28" fill="#1b3526"/>
+  </g>
+
+  <!-- garaža -->
+  <rect x="598" y="292" width="128" height="108" fill="url(#wall)"/>
+  <rect x="590" y="284" width="144" height="12" fill="#3c4048"/>
+  <rect x="614" y="318" width="96" height="82" fill="url(#slats)"/>
+  <rect x="614" y="318" width="96" height="82" fill="none" stroke="#4a5059" stroke-width="3"/>
+
+  <!-- kuća: prizemlje i sprat -->
+  <rect x="210" y="180" width="390" height="220" fill="url(#wall)"/>
+  <!-- drvena obloga sprata -->
+  <rect x="210" y="180" width="390" height="104" fill="url(#wood)"/>
+  <rect x="210" y="282" width="390" height="6" fill="#8d877c"/>
+  <!-- krov -->
+  <path d="M188 186 L405 92 L622 186 Z" fill="#2b313c"/>
+  <path d="M188 186 L405 92 L622 186 L612 190 L405 102 L198 190 Z" fill="#454c59"/>
+  <!-- prozor u potkrovlju -->
+  <circle cx="405" cy="150" r="17" fill="url(#dark)" stroke="#e8e2d6" stroke-width="4"/>
+
+  <!-- sprat: dva prozora (levi upaljen, desni ugašen) -->
+  <rect x="250" y="204" width="112" height="60" fill="url(#lit)" stroke="#e8e2d6" stroke-width="5"/>
+  <line x1="306" y1="204" x2="306" y2="264" stroke="#e8e2d6" stroke-width="4"/>
+  <rect x="448" y="204" width="112" height="60" fill="url(#dark)" stroke="#e8e2d6" stroke-width="5"/>
+  <line x1="504" y1="204" x2="504" y2="264" stroke="#e8e2d6" stroke-width="4"/>
+
+  <!-- prizemlje: veliki prozor dnevne sobe (upaljen), vrata, prozor kuhinje (upaljen) -->
+  <rect x="232" y="306" width="150" height="74" fill="url(#lit)" stroke="#3c4048" stroke-width="5"/>
+  <line x1="307" y1="306" x2="307" y2="380" stroke="#3c4048" stroke-width="4"/>
+  <rect x="414" y="312" width="56" height="88" fill="#5b3b28" stroke="#3c4048" stroke-width="4"/>
+  <rect x="424" y="322" width="36" height="30" fill="url(#lit)" opacity="0.85"/>
+  <circle cx="460" cy="362" r="3" fill="#d8c08a"/>
+  <rect x="500" y="312" width="80" height="58" fill="url(#lit)" stroke="#3c4048" stroke-width="5"/>
+
+  <!-- zidne lampe pored vrata -->
+  <circle cx="400" cy="320" r="26" fill="url(#glow)"/>
+  <circle cx="484" cy="320" r="26" fill="url(#glow)"/>
+  <rect x="396" y="314" width="8" height="12" rx="2" fill="#ffe2a0"/>
+  <rect x="480" y="314" width="8" height="12" rx="2" fill="#ffe2a0"/>
+
+  <!-- staza i stepenik -->
+  <rect x="404" y="398" width="76" height="6" fill="#8d877c"/>
+  <path d="M414 404 L470 404 L520 480 L364 480 Z" fill="#7d776c" opacity="0.85"/>
+
+  <!-- baštenske lampice -->
+  <g>
+    <circle cx="160" cy="440" r="22" fill="url(#glow)"/><rect x="157" y="430" width="6" height="22" fill="#2a2f36"/><circle cx="160" cy="430" r="4" fill="#ffe2a0"/>
+    <circle cx="300" cy="445" r="22" fill="url(#glow)"/><rect x="297" y="435" width="6" height="22" fill="#2a2f36"/><circle cx="300" cy="435" r="4" fill="#ffe2a0"/>
+    <circle cx="600" cy="445" r="22" fill="url(#glow)"/><rect x="597" y="435" width="6" height="22" fill="#2a2f36"/><circle cx="600" cy="435" r="4" fill="#ffe2a0"/>
+  </g>
+  <!-- žbunje -->
+  <ellipse cx="225" cy="400" rx="30" ry="14" fill="#1f3b2a"/>
+  <ellipse cx="575" cy="400" rx="26" ry="12" fill="#1f3b2a"/>
+</svg>

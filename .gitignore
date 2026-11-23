@@ -1,0 +1,12 @@
+.pio/
+.vscode/
+__pycache__/
+.DS_Store
+
+# Lično — nikad u git (ključevi, tokeni, raspored sa ID-jevima pravih uređaja)
+include/secrets.h
+include/ewelink_tokens.h
+include/home_positions.h
+
+# Rezervne kopije i lične fotografije kuće
+backup/
