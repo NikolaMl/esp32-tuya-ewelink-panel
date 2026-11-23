@@ -3,7 +3,7 @@
 A 5" ESP32-S3 touch panel for the wall that controls **Tuya / Smart Life** and **eWeLink / Sonoff**
 devices straight from their clouds. You don't need Home Assistant, a hub or any other server.
 
-![Home screen](docs/images/panel-home.png)
+![The panel: a 5" ESP32-S3 touch board showing the home screen](docs/images/panel-device.png)
 
 The home screen is a photo of your house. Lights, blinds, thermostats, temperatures and sensors
 sit on the photo where they really are, and you tap a window to switch that light on. Everything
